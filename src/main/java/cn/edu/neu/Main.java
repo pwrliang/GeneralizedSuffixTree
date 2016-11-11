@@ -7,7 +7,6 @@ import org.apache.spark.api.java.JavaSparkContext;
 import java.io.*;
 import java.util.*;
 
-import cn.edu.neu.ERA.*;
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.VoidFunction;
 
@@ -46,17 +45,17 @@ public class Main {
         File folder = new File("/home/lib/Documents/exset/ex1");
         String[] fileNames = folder.list();
         final Map<Character, String> terminatorFilename = new HashMap<Character, String>();
-        ERA era = new ERA();
+        SlavesWorks slavesWorks = new SlavesWorks();
         final List<String> S = new ArrayList<String>();
         for (String filename : fileNames) {
             File txtFile = new File(folder.getPath() + "/" + filename);
             String content = readFile(txtFile);
-            Character terminator = era.nextTerminator();
+            Character terminator = slavesWorks.nextTerminator();
             S.add(content + terminator);
             terminatorFilename.put(terminator, filename);
         }
-        Set<Character> alphabet = era.getAlphabet(S);
-        Set<Set<String>> setOfVirtualTrees = era.verticalPartitioning(S, alphabet, 2 * 1024 * 1024 / 10);
+        Set<Character> alphabet = slavesWorks.getAlphabet(S);
+        Set<Set<String>> setOfVirtualTrees = slavesWorks.verticalPartitioning(S, alphabet, 2 * 1024 * 1024 / 10);
         System.out.println("Vertical Partition Finished");
         JavaRDD<Set<String>> vtRDD = sc.parallelize(new ArrayList<Set<String>>(setOfVirtualTrees));
         JavaRDD<SlavesWorks> works = vtRDD.map(new Function<Set<String>, SlavesWorks>() {
