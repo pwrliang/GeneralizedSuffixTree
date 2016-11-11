@@ -1,12 +1,15 @@
 package cn.edu.neu;
 
 import org.apache.spark.SparkConf;
+import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 
 import java.io.*;
 import java.util.*;
 
 import cn.edu.neu.ERA.*;
+import org.apache.spark.api.java.function.Function;
+import org.apache.spark.api.java.function.VoidFunction;
 
 /**
  * Created by Liang on 16-11-9.
@@ -55,14 +58,16 @@ public class Main {
         Set<Character> alphabet = era.getAlphabet(S);
         Set<Set<String>> setOfVirtualTrees = era.verticalPartitioning(S, alphabet, 2 * 1024 * 1024 / 10);
         System.out.println("Vertical Partition Finished");
-        for (Set<String> virtualTrees : setOfVirtualTrees) {
-            for (final String s : virtualTrees) {
-                ERA instance = new ERA();
-                Object[] L_B = instance.subTreePrepare(S, s);
-                TreeNode root = instance.buildSubTree(S, (List<int[]>) L_B[0], (List<TypeB>) L_B[1]);
-                instance.splitSubTree(S, s, root);
-                instance.traverseTree(root, terminatorFilename);
+        JavaRDD<Set<String>> vtRDD = sc.parallelize(new ArrayList<Set<String>>(setOfVirtualTrees));
+        JavaRDD<SlavesWorks> works = vtRDD.map(new Function<Set<String>, SlavesWorks>() {
+            public SlavesWorks call(Set<String> v1) throws Exception {
+                return new SlavesWorks(S, v1, terminatorFilename);
             }
-        }
+        });
+        works.foreach(new VoidFunction<SlavesWorks>() {
+            public void call(SlavesWorks slavesWorks) throws Exception {
+                slavesWorks.work();
+            }
+        });
     }
 }
