@@ -1,10 +1,13 @@
 package GST;
 
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.*;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 
 import java.io.*;
+import java.net.URI;
 import java.util.*;
 
 import org.apache.spark.api.java.function.Function;
@@ -14,7 +17,7 @@ import org.apache.spark.api.java.function.VoidFunction;
  * Created by Liang on 16-11-9.
  */
 public class Main {
-    public static String readFile(File file) {
+    public static String readLocalFile(File file) {
         StringBuilder sb = new StringBuilder();
         BufferedReader reader = null;
         try {
@@ -38,42 +41,77 @@ public class Main {
         return sb.toString();
     }
 
-    public static void WriteToFile(String filename, String line) {
-        File file = new File(filename);
-        BufferedWriter bw = null;
-        try {
-            bw = new BufferedWriter(new FileWriter(file));
-            bw.write(line);
-            bw.newLine();
-        } catch (IOException e) {
-            e.printStackTrace();
-        } finally {
-            if (bw != null)
-                try {
-                    bw.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
+    public static String readFile(String url) throws IOException {
+        Path path = new Path(url);
+        URI uri = path.toUri();
+        String hdfsPath = String.format("%s://%s:%d", uri.getScheme(), uri.getHost(), uri.getPort());
+        Configuration conf = new Configuration();
+        conf.set("fs.default.name", hdfsPath);//hdfs://master:9000
+        FileSystem fileSystem = FileSystem.get(conf);
+        FSDataInputStream inputStream = fileSystem.open(path);
+        StringBuilder sb = new StringBuilder();
+        String line;
+        while ((line = inputStream.readLine()) != null) {
+            sb.append(line);
         }
+        return sb.toString();
     }
 
-    public static void main(String[] args) {
-        SparkConf conf = new SparkConf().setMaster("master").setAppName("Generalized Suffix Tree");
-        JavaSparkContext sc = new JavaSparkContext(conf);
+    public static List<String> listFiles(String url) throws IOException {
+        Path path = new Path(url);
+        URI uri = path.toUri();
+        String hdfsPath = String.format("%s://%s:%d", uri.getScheme(), uri.getHost(), uri.getPort());
+        Configuration conf = new Configuration();
+        conf.set("fs.default.name", hdfsPath);
 
-        File folder = new File(args[0]);
-//        File folder = new File("/home/lib/Documents/exset/ex3");
-        String[] fileNames = folder.list();
+        FileSystem fileSystem = FileSystem.get(conf);
+        RemoteIterator<LocatedFileStatus> files = fileSystem.listFiles(path, true);
+        List<String> pathList = new ArrayList<String>();
+        while (files.hasNext()) {
+            LocatedFileStatus file = files.next();
+            pathList.add(file.getPath().toString());
+        }
+        return pathList;
+    }
+
+    public static void writeToFile(String url, String line) throws IOException {
+        Path path = new Path(url);
+        URI uri = path.toUri();
+        String hdfsPath = String.format("%s://%s:%d", uri.getScheme(), uri.getHost(), uri.getPort());
+        Configuration conf = new Configuration();
+        conf.set("fs.default.name", hdfsPath);//hdfs://master:9000
+        FileSystem fileSystem = FileSystem.get(conf);
+        FSDataOutputStream outputStream = fileSystem.append(path);
+        outputStream.writeChars(line);
+        outputStream.close();
+    }
+
+    public static void main(String[] args) throws IOException {
+        SparkConf conf = new SparkConf().setAppName("Generalized Suffix Tree");
+        final JavaSparkContext sc = new JavaSparkContext(conf);
+        String inputURL = args[0];
+        String outputURL = args[1];
+
+        List<String> pathList = listFiles(inputURL);
         final Map<Character, String> terminatorFilename = new HashMap<Character, String>();
         SlavesWorks slavesWorks = new SlavesWorks();
         final List<String> S = new ArrayList<String>();
-        for (String filename : fileNames) {
-            File txtFile = new File(folder.getPath() + "/" + filename);
-            String content = readFile(txtFile);
+        for (String filename : pathList) {
+            String content = readFile(filename);
             Character terminator = slavesWorks.nextTerminator();
             S.add(content + terminator);
-            terminatorFilename.put(terminator, filename);
+            terminatorFilename.put(terminator, filename.substring(filename.lastIndexOf('/')));
         }
+        Path path = new Path(outputURL);
+        URI uri = path.toUri();
+        String hdfsPath = String.format("%s://%s:%d", uri.getScheme(), uri.getHost(), uri.getPort());
+        Configuration hdfsConf = new Configuration();
+        conf.set("fs.default.name", hdfsPath);//hdfs://master:9000
+        FileSystem fileSystem = FileSystem.get(hdfsConf);
+        if (fileSystem.exists(path))
+            fileSystem.delete(path);
+        fileSystem.createNewFile(path);
+        final FSDataOutputStream outputStream = fileSystem.append(path);
         Set<Character> alphabet = slavesWorks.getAlphabet(S);
         Set<Set<String>> setOfVirtualTrees = slavesWorks.verticalPartitioning(S, alphabet, 2 * 1024 * 1024 / 10);
         System.out.println("Vertical Partition Finished");
@@ -85,9 +123,17 @@ public class Main {
         });
         works.foreach(new VoidFunction<SlavesWorks>() {
             public void call(SlavesWorks slavesWorks) throws Exception {
-                slavesWorks.work();
+                List<String> result = slavesWorks.work();
+                System.out.println("===============finished=====================");
+//                JavaRDD<String> rdd = sc.parallelize(result);
+//                rdd.foreach(new VoidFunction<String>() {
+//                    public void call(String s) throws Exception {
+//                        outputStream.writeChars(s);
+//                    }
+//                });
             }
         });
+        outputStream.close();
         System.out.println("end");
     }
 }

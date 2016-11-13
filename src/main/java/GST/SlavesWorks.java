@@ -1,5 +1,8 @@
 package GST;
 
+import org.apache.hadoop.fs.FSDataOutputStream;
+import org.apache.spark.api.java.JavaRDD;
+
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.util.*;
@@ -46,6 +49,7 @@ public class SlavesWorks {
     private boolean isTerminator(char c) {
         return c >= 43000 && c <= 57000;
     }
+
     public char nextTerminator() {
         return terminator++;
     }
@@ -193,23 +197,24 @@ public class SlavesWorks {
     private Set<String> p;
     private Map<Character, String> terminatorFilename;
 
-
-    public SlavesWorks(){
+    public SlavesWorks() {
 
     }
+
     public SlavesWorks(List<String> S, Set<String> p, Map<Character, String> terminatorFilename) {
         this.S = S;
         this.p = p;
         this.terminatorFilename = terminatorFilename;
     }
 
-    public void work() {
+    public List<String> work() {
         for (String Pi : p) {
             Object[] L_B = subTreePrepare(S, Pi);
             TreeNode root = buildSubTree((List<int[]>) L_B[0], (List<TypeB>) L_B[1]);
             splitSubTree(S, Pi, root);
             traverseTree(root, terminatorFilename);
         }
+        return result;
     }
 
     //二维版本的subTreePrepare
@@ -602,7 +607,7 @@ public class SlavesWorks {
     }
 
     private Stack<TreeNode> path = new Stack<TreeNode>();
-
+    private List<String> result = new ArrayList<String>();
     public void traverseTree(TreeNode root) {
         if (root == null) {
             if (path.isEmpty())
@@ -620,14 +625,16 @@ public class SlavesWorks {
             traverseTree(root.rightSibling);
         }
     }
-    
+
     public void traverseTree(TreeNode root, Map<Character, String> terminatorFileName) {
         if (root == null) {
             if (path.isEmpty())
                 return;
             TreeNode leaf = path.pop();
             if (leaf.index != null) {
-                System.out.println(path.size() + " " + terminatorFileName.get(leaf.data.charAt(leaf.data.length() - 1)) + ":" + leaf.index[1]);
+                String line = String.format("%d %s:%d\n", path.size(), terminatorFileName.get(leaf.data.charAt(leaf.data.length() - 1)), leaf.index[1]);
+                result.add(line);
+//                System.out.println(path.size() + " " + terminatorFileName.get(leaf.data.charAt(leaf.data.length() - 1)) + ":" + leaf.index[1]);
             }
         } else {
             path.push(root);
