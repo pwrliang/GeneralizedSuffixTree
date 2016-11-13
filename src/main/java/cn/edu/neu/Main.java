@@ -38,11 +38,31 @@ public class Main {
         return sb.toString();
     }
 
+    public static void WriteToFile(String filename, String line) {
+        File file = new File(filename);
+        BufferedWriter bw = null;
+        try {
+            bw = new BufferedWriter(new FileWriter(file));
+            bw.write(line);
+            bw.newLine();
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            if (bw != null)
+                try {
+                    bw.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+        }
+    }
+
     public static void main(String[] args) {
-        SparkConf conf = new SparkConf().setMaster("local").setAppName("Generalized Suffix Tree");
+        SparkConf conf = new SparkConf().setAppName("Generalized Suffix Tree");
         JavaSparkContext sc = new JavaSparkContext(conf);
 
-        File folder = new File("/home/lib/Documents/exset/ex1");
+        File folder = new File(args[0]);
+//        File folder = new File("/home/lib/Documents/exset/ex3");
         String[] fileNames = folder.list();
         final Map<Character, String> terminatorFilename = new HashMap<Character, String>();
         SlavesWorks slavesWorks = new SlavesWorks();
@@ -68,5 +88,6 @@ public class Main {
                 slavesWorks.work();
             }
         });
+        System.out.println("end");
     }
 }

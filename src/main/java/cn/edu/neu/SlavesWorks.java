@@ -1,5 +1,8 @@
 package cn.edu.neu;
 
+import java.io.BufferedWriter;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.util.*;
 
 /**
@@ -601,7 +604,6 @@ public class SlavesWorks {
 
     private Stack<TreeNode> path = new Stack<TreeNode>();
 
-
     public void traverseTree(TreeNode root) {
         if (root == null) {
             if (path.isEmpty())
@@ -627,6 +629,26 @@ public class SlavesWorks {
             TreeNode leaf = path.pop();
             if (leaf.index != null) {
                 System.out.println(path.size() + " " + terminatorFileName.get(leaf.data.charAt(leaf.data.length() - 1)) + ":" + leaf.index[1]);
+            }
+        } else {
+            path.push(root);
+            traverseTree(root.leftChild, terminatorFileName);
+            traverseTree(root.rightSibling, terminatorFileName);
+        }
+    }
+
+    public void traverseTree(TreeNode root, Map<Character, String> terminatorFileName, BufferedWriter outputStream) {
+        if (root == null) {
+            if (path.isEmpty())
+                return;
+            TreeNode leaf = path.pop();
+            if (leaf.index != null) {
+                try {
+                    outputStream.write(path.size() + " " + terminatorFileName.get(leaf.data.charAt(leaf.data.length() - 1)) + ":" + leaf.index[1]);
+                    outputStream.newLine();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
             }
         } else {
             path.push(root);
