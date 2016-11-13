@@ -1,4 +1,4 @@
-package cn.edu.neu;
+package GST;
 
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaRDD;
@@ -58,7 +58,7 @@ public class Main {
     }
 
     public static void main(String[] args) {
-        SparkConf conf = new SparkConf().setAppName("Generalized Suffix Tree");
+        SparkConf conf = new SparkConf().setMaster("master").setAppName("Generalized Suffix Tree");
         JavaSparkContext sc = new JavaSparkContext(conf);
 
         File folder = new File(args[0]);
