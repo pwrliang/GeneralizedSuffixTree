@@ -73,7 +73,7 @@ public class Main {
         URI uri = path.toUri();
         String hdfsPath = String.format("%s://%s:%d", uri.getScheme(), uri.getHost(), uri.getPort());
         Configuration conf = new Configuration();
-        conf.set("fs.default.name", hdfsPath);
+        conf.set("fs.defaultFS", hdfsPath);
 
         FileSystem fileSystem = FileSystem.get(conf);
         RemoteIterator<LocatedFileStatus> files = fileSystem.listFiles(path, true);
@@ -90,7 +90,7 @@ public class Main {
         URI uri = path.toUri();
         String hdfsPath = String.format("%s://%s:%d", uri.getScheme(), uri.getHost(), uri.getPort());
         Configuration conf = new Configuration();
-        conf.set("fs.default.name", hdfsPath);//hdfs://master:9000
+        conf.set("fs.defaultFS", hdfsPath);//hdfs://master:9000
         FileSystem fileSystem = FileSystem.get(conf);
         FSDataOutputStream outputStream = fileSystem.append(path);
         outputStream.writeChars(line);
