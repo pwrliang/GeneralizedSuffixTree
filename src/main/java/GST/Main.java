@@ -46,7 +46,7 @@ public class Main {
         URI uri = path.toUri();
         String hdfsPath = String.format("%s://%s:%d", uri.getScheme(), uri.getHost(), uri.getPort());
         Configuration conf = new Configuration();
-        conf.set("fs.default.name", hdfsPath);//hdfs://master:9000
+        conf.set("fs.defaultFS", hdfsPath);//hdfs://master:9000
         FileSystem fileSystem = FileSystem.get(conf);
         FSDataInputStream inputStream = fileSystem.open(path);
         StringBuilder sb = new StringBuilder();
@@ -54,6 +54,17 @@ public class Main {
         while ((line = inputStream.readLine()) != null) {
             sb.append(line);
         }
+        return sb.toString();
+    }
+
+    public static String readFile(FileSystem fileSystem, Path path) throws IOException {
+        FSDataInputStream inputStream = fileSystem.open(path);
+        StringBuilder sb = new StringBuilder();
+        String line;
+        while ((line = inputStream.readLine()) != null) {
+            sb.append(line);
+        }
+        inputStream.close();
         return sb.toString();
     }
 
@@ -90,41 +101,40 @@ public class Main {
         SparkConf conf = new SparkConf().setAppName("Generalized Suffix Tree");
         final JavaSparkContext sc = new JavaSparkContext(conf);
         String inputURL = args[0];
-        String outputURL = args[1];
-
+//        String outputURL = args[1];
+        Path inputPath = new Path(inputURL);
+        //初始化HDFS
+        URI uri = inputPath.toUri();
+        String hdfsPath = String.format("%s://%s:%d", uri.getScheme(), uri.getHost(), uri.getPort());
+        Configuration hdfsConf = new Configuration();
+        hdfsConf.set("fs.defaultFS", hdfsPath);//hdfs://master:9000
+        FileSystem fileSystem = FileSystem.get(hdfsConf);
+        //开始读取文本文件
         List<String> pathList = listFiles(inputURL);
-        final Map<Character, String> terminatorFilename = new HashMap<Character, String>();
+        final Map<Character, String> terminatorFilename = new HashMap<Character, String>();//终结符:文件名
         SlavesWorks slavesWorks = new SlavesWorks();
         final List<String> S = new ArrayList<String>();
         for (String filename : pathList) {
-            String content = readFile(filename);
+            String content = readFile(fileSystem, new Path(filename));
             Character terminator = slavesWorks.nextTerminator();
             S.add(content + terminator);
             terminatorFilename.put(terminator, filename.substring(filename.lastIndexOf('/')));
+
         }
-        Path path = new Path(outputURL);
-        URI uri = path.toUri();
-        String hdfsPath = String.format("%s://%s:%d", uri.getScheme(), uri.getHost(), uri.getPort());
-        Configuration hdfsConf = new Configuration();
-        conf.set("fs.default.name", hdfsPath);//hdfs://master:9000
-        FileSystem fileSystem = FileSystem.get(hdfsConf);
-        if (fileSystem.exists(path))
-            fileSystem.delete(path);
-        fileSystem.createNewFile(path);
-        final FSDataOutputStream outputStream = fileSystem.append(path);
         Set<Character> alphabet = slavesWorks.getAlphabet(S);
         Set<Set<String>> setOfVirtualTrees = slavesWorks.verticalPartitioning(S, alphabet, 2 * 1024 * 1024 / 10);
         System.out.println("Vertical Partition Finished");
+        //分配任务
         JavaRDD<Set<String>> vtRDD = sc.parallelize(new ArrayList<Set<String>>(setOfVirtualTrees));
         JavaRDD<SlavesWorks> works = vtRDD.map(new Function<Set<String>, SlavesWorks>() {
             public SlavesWorks call(Set<String> v1) throws Exception {
                 return new SlavesWorks(S, v1, terminatorFilename);
             }
         });
+        //执行任务
         works.foreach(new VoidFunction<SlavesWorks>() {
             public void call(SlavesWorks slavesWorks) throws Exception {
                 List<String> result = slavesWorks.work();
-                System.out.println("===============finished=====================");
 //                JavaRDD<String> rdd = sc.parallelize(result);
 //                rdd.foreach(new VoidFunction<String>() {
 //                    public void call(String s) throws Exception {
@@ -133,7 +143,6 @@ public class Main {
 //                });
             }
         });
-        outputStream.close();
-        System.out.println("end");
+        System.out.println("end===========================");
     }
 }
