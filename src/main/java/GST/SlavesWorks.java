@@ -306,7 +306,7 @@ public class SlavesWorks {
             List<RPL> beforeOrderedRPLList = new ArrayList<RPL>(RPLList);
             for (Integer aaId : activeAreaList.keySet()) {
                 //已经置done的活动区可以跳过
-                if (A_done.get(aaId))
+                if (A_done.get(activeAreaList.get(aaId).get(0)))
                     continue;
                 List<Integer> rplIndexes = activeAreaList.get(aaId);//找到同一个活动区元素的位置列表
                 List<RPL> aaRPL = new LinkedList<RPL>();//对同一个活动区，取出元素放入这里
