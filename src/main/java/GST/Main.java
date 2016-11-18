@@ -107,7 +107,8 @@ public class Main {
         }
         Set<Character> alphabet = masterWork.getAlphabet(S);
         //垂直分区
-        Set<Set<String>> setOfVirtualTrees = masterWork.verticalPartitioning(S, alphabet, 1 * 1024 * 1024 * 1024 / (2 * 100));
+        //2 * 1024 * 1024 / 10
+        Set<Set<String>> setOfVirtualTrees = masterWork.verticalPartitioning(S, alphabet, 2 * 1024 * 1024 / 10);
         System.out.println("Vertical Partition Finished");
 
         //分配任务
