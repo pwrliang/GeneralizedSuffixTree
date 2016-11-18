@@ -196,7 +196,7 @@ public class SlavesWorks {
     private List<String> S;
     private Set<String> p;
     private Map<Character, String> terminatorFilename;
-
+    private String outputPath;
     public SlavesWorks() {
 
     }
@@ -207,14 +207,22 @@ public class SlavesWorks {
         this.terminatorFilename = terminatorFilename;
     }
 
-    public List<String> work() {
+    public void setOutputPath(String outputPath){
+        this.outputPath = outputPath;
+    }
+
+    public String getOutputPath(){
+        return this.outputPath;
+    }
+
+    public String work() {
         for (String Pi : p) {
             Object[] L_B = subTreePrepare(S, Pi);
             TreeNode root = buildSubTree((List<int[]>) L_B[0], (List<TypeB>) L_B[1]);
             splitSubTree(S, Pi, root);
             traverseTree(root, terminatorFilename);
         }
-        return result;
+        return result.toString();
     }
 
     //二维版本的subTreePrepare
@@ -607,7 +615,7 @@ public class SlavesWorks {
     }
 
     private Stack<TreeNode> path = new Stack<TreeNode>();
-    private List<String> result = new ArrayList<String>();
+    private StringBuffer result = new StringBuffer();
     public void traverseTree(TreeNode root) {
         if (root == null) {
             if (path.isEmpty())
@@ -633,7 +641,7 @@ public class SlavesWorks {
             TreeNode leaf = path.pop();
             if (leaf.index != null) {
                 String line = String.format("%d %s:%d\n", path.size(), terminatorFileName.get(leaf.data.charAt(leaf.data.length() - 1)), leaf.index[1]);
-                result.add(line);
+                result.append(line);
 //                System.out.println(path.size() + " " + terminatorFileName.get(leaf.data.charAt(leaf.data.length() - 1)) + ":" + leaf.index[1]);
             }
         } else {
