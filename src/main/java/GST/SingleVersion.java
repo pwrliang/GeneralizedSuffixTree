@@ -1,8 +1,11 @@
 package GST;
 
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.*;
 import scala.util.parsing.combinator.testing.Str;
 
 import java.io.*;
+import java.net.URI;
 import java.util.*;
 
 /**
@@ -33,18 +36,21 @@ public class SingleVersion {
         return sb.toString();
     }
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws IOException {
         File file = new File("/home/gengl/Documents/exset/ex3");
-        SlavesWorks slavesWorks = new SlavesWorks();
-        final List<String> S = new ArrayList<String>();
+
+        List<String> pathList = Main.listFiles("hdfs://master:9000/exset/ex3");
         final Map<Character, String> terminatorFilename = new HashMap<Character, String>();//终结符:文件名
-        for (String filename : file.list()) {
-            String path = file.getPath() + "/" + filename;
-            String content = readLocalFile(new File(path));
-            Character terminator = slavesWorks.nextTerminator();
+        SlavesWorks masterWork = new SlavesWorks();
+        final List<String> S = new ArrayList<String>();
+        for (String filename : pathList) {
+            System.out.println(filename);
+            String content = Main.readFile(filename);
+            Character terminator = masterWork.nextTerminator();
             S.add(content + terminator);
-            terminatorFilename.put(terminator, filename);
+            terminatorFilename.put(terminator, filename.substring(filename.lastIndexOf('/') + 1));
         }
+        SlavesWorks slavesWorks = new SlavesWorks();
         Set<Character> alphabet = slavesWorks.getAlphabet(S);
         Set<Set<String>> setOfVirtualTrees = slavesWorks.verticalPartitioning(S, alphabet, 1 * 1024 * 1024 * 1024 / (2 * 20));
         for (Set<String> eachMachine : setOfVirtualTrees) {

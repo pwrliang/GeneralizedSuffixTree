@@ -5,17 +5,13 @@ import org.apache.spark.api.java.JavaRDD;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
+import java.io.Serializable;
 import java.util.*;
 
 /**
  * Created by lib on 16-11-11.
  */
-public class SlavesWorks {
-    private char terminator = 43000;
-    public static final char SPLITTER_INSERTION = 57001;
-    public static final char SPLITTER = 57002;
-
-
+public class SlavesWorks implements Serializable{
     public static class TypeB {
         char c1, c2;
         int common;
@@ -29,7 +25,6 @@ public class SlavesWorks {
             this.common = common;
         }
     }
-
     public static class TreeNode {
         String data;
         int[] index;
@@ -44,6 +39,34 @@ public class SlavesWorks {
             this.data = data;
             this.index = index;
         }
+    }
+    private char terminator = 43000;
+    public static final char SPLITTER_INSERTION = 57001;
+    public static final char SPLITTER = 57002;
+
+    private List<String> S;
+    private Set<String> p;
+    private Map<Character, String> terminatorFilename;
+    private Stack<TreeNode> path = new Stack<TreeNode>();
+    private StringBuffer result = new StringBuffer();
+    public SlavesWorks() {
+
+    }
+
+    public SlavesWorks(List<String> S, Set<String> p, Map<Character, String> terminatorFilename) {
+        this.S = S;
+        this.p = p;
+        this.terminatorFilename = terminatorFilename;
+    }
+
+    public String work() {
+        for (String Pi : p) {
+            Object[] L_B = subTreePrepare(S, Pi);
+            TreeNode root = buildSubTree((List<int[]>) L_B[0], (List<TypeB>) L_B[1]);
+            splitSubTree(S, Pi, root);
+            traverseTree(root, terminatorFilename);
+        }
+        return result.toString();
     }
 
     private boolean isTerminator(char c) {
@@ -190,39 +213,6 @@ public class SlavesWorks {
             virtualTree.add(G);
         } while (!P.isEmpty());
         return virtualTree;
-    }
-
-
-    private List<String> S;
-    private Set<String> p;
-    private Map<Character, String> terminatorFilename;
-    private String outputPath;
-    public SlavesWorks() {
-
-    }
-
-    public SlavesWorks(List<String> S, Set<String> p, Map<Character, String> terminatorFilename) {
-        this.S = S;
-        this.p = p;
-        this.terminatorFilename = terminatorFilename;
-    }
-
-    public void setOutputPath(String outputPath){
-        this.outputPath = outputPath;
-    }
-
-    public String getOutputPath(){
-        return this.outputPath;
-    }
-
-    public String work() {
-        for (String Pi : p) {
-            Object[] L_B = subTreePrepare(S, Pi);
-            TreeNode root = buildSubTree((List<int[]>) L_B[0], (List<TypeB>) L_B[1]);
-            splitSubTree(S, Pi, root);
-            traverseTree(root, terminatorFilename);
-        }
-        return result.toString();
     }
 
     //二维版本的subTreePrepare
@@ -614,8 +604,6 @@ public class SlavesWorks {
         }
     }
 
-    private Stack<TreeNode> path = new Stack<TreeNode>();
-    private StringBuffer result = new StringBuffer();
     public void traverseTree(TreeNode root) {
         if (root == null) {
             if (path.isEmpty())
