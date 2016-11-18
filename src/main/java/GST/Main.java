@@ -2,6 +2,8 @@ package GST;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.*;
+import org.apache.hadoop.util.*;
+import org.apache.hadoop.util.Options;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
@@ -18,7 +20,6 @@ import org.apache.spark.util.AccumulatorV2;
  * Created by Liang on 16-11-9.
  */
 public class Main {
-//readFile有问题！！！
     public static String readFile(String url) throws IOException {
         Path path = new Path(url);
         URI uri = path.toUri();
@@ -26,10 +27,10 @@ public class Main {
         Configuration conf = new Configuration();
         conf.set("fs.defaultFS", hdfsPath);//hdfs://master:9000
         FileSystem fileSystem = FileSystem.get(conf);
-        FSDataInputStream inputStream = fileSystem.open(path);
+        BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(fileSystem.open(path)));
         StringBuilder sb = new StringBuilder();
         String line;
-        while ((line = inputStream.readLine()) != null) {
+        while ((line = bufferedReader.readLine()) != null) {
             sb.append(line);
         }
         return sb.toString();
@@ -72,14 +73,14 @@ public class Main {
         Configuration conf = new Configuration();
         conf.set("fs.defaultFS", hdfsPath);//hdfs://master:9000
         FileSystem fileSystem = FileSystem.get(conf);
-        FSDataOutputStream outputStream = fileSystem.create(path);
-        outputStream.writeBytes(content);
-        outputStream.close();
+        BufferedWriter bufferedWriter = new BufferedWriter(new OutputStreamWriter(fileSystem.create(path)));
+        bufferedWriter.write(content);
+        bufferedWriter.close();
     }
 
-    static void writeToLocal(String path,String content) throws IOException {
-        File file =new File(path);
-        if(file.exists())
+    static void writeToLocal(String path, String content) throws IOException {
+        File file = new File(path);
+        if (file.exists())
             file.delete();
         file.createNewFile();
         BufferedWriter writer = new BufferedWriter(new FileWriter(file));
@@ -93,37 +94,35 @@ public class Main {
         final JavaSparkContext sc = new JavaSparkContext(sparkConf);
         final String inputURL = args[0];
         final String outputURL = args[1];
-        System.out.println(inputURL + "---------------" + outputURL);
         //开始读取文本文件
         List<String> pathList = listFiles(inputURL);
         final Map<Character, String> terminatorFilename = new HashMap<Character, String>();//终结符:文件名
         SlavesWorks masterWork = new SlavesWorks();
         final List<String> S = new ArrayList<String>();
         for (String filename : pathList) {
-            System.out.println(filename);
             String content = readFile(filename);
             Character terminator = masterWork.nextTerminator();
             S.add(content + terminator);
             terminatorFilename.put(terminator, filename.substring(filename.lastIndexOf('/') + 1));
         }
         Set<Character> alphabet = masterWork.getAlphabet(S);
-        Set<Set<String>> setOfVirtualTrees = masterWork.verticalPartitioning(S, alphabet, 1 * 1024 * 1024 * 1024 / (2 * 20));
+        //垂直分区
+        Set<Set<String>> setOfVirtualTrees = masterWork.verticalPartitioning(S, alphabet, 1 * 1024 * 1024 * 1024 / (2 * 100));
         System.out.println("Vertical Partition Finished");
+
         //分配任务
         JavaRDD<Set<String>> vtRDD = sc.parallelize(new ArrayList<Set<String>>(setOfVirtualTrees));
         JavaRDD<SlavesWorks> works = vtRDD.map(new Function<Set<String>, SlavesWorks>() {
             public SlavesWorks call(Set<String> v1) throws Exception {
-                return new SlavesWorks(S, v1, terminatorFilename);
+                return new SlavesWorks(S, v1, terminatorFilename, outputURL);
             }
         });
-        //执行任务
-        Iterator<SlavesWorks> iterator = works.toLocalIterator();
-        while (iterator.hasNext()) {
-            SlavesWorks slavesWorks = iterator.next();
-            String result = slavesWorks.work();
-            System.out.println(result);
-//            writeToFile(outputURL, "part-" + slavesWorks.hashCode(), result);
-        }
+//      执行任务
+        works.foreach(new VoidFunction<SlavesWorks>() {
+            public void call(SlavesWorks slavesWorks) throws Exception {
+                slavesWorks.work();
+            }
+        });
         System.out.println("end===========================");
     }
 }

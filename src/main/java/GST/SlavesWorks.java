@@ -1,17 +1,22 @@
 package GST;
 
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataOutputStream;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 import org.apache.spark.api.java.JavaRDD;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
+import java.io.OutputStreamWriter;
 import java.io.Serializable;
+import java.net.URI;
 import java.util.*;
 
 /**
  * Created by lib on 16-11-11.
  */
-public class SlavesWorks implements Serializable{
+public class SlavesWorks implements Serializable {
     public static class TypeB {
         char c1, c2;
         int common;
@@ -25,6 +30,7 @@ public class SlavesWorks implements Serializable{
             this.common = common;
         }
     }
+
     public static class TreeNode {
         String data;
         int[] index;
@@ -40,6 +46,7 @@ public class SlavesWorks implements Serializable{
             this.index = index;
         }
     }
+
     private char terminator = 43000;
     public static final char SPLITTER_INSERTION = 57001;
     public static final char SPLITTER = 57002;
@@ -49,24 +56,43 @@ public class SlavesWorks implements Serializable{
     private Map<Character, String> terminatorFilename;
     private Stack<TreeNode> path = new Stack<TreeNode>();
     private StringBuffer result = new StringBuffer();
+    private String outputURL;
+
     public SlavesWorks() {
 
     }
 
-    public SlavesWorks(List<String> S, Set<String> p, Map<Character, String> terminatorFilename) {
+    public SlavesWorks(List<String> S, Set<String> p, Map<Character, String> terminatorFilename, String outputURL) {
         this.S = S;
         this.p = p;
         this.terminatorFilename = terminatorFilename;
+        this.outputURL = outputURL;
     }
 
-    public String work() {
+    public void work() {
         for (String Pi : p) {
             Object[] L_B = subTreePrepare(S, Pi);
             TreeNode root = buildSubTree((List<int[]>) L_B[0], (List<TypeB>) L_B[1]);
             splitSubTree(S, Pi, root);
             traverseTree(root, terminatorFilename);
         }
-        return result.toString();
+        try {
+            writeToFile(outputURL, "part-" + this.hashCode(), result.toString());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void writeToFile(String outputURL, String filename, String content) throws IOException {
+        Path path = new Path(outputURL + "/" + filename);
+        URI uri = path.toUri();
+        String hdfsPath = String.format("%s://%s:%d", uri.getScheme(), uri.getHost(), uri.getPort());
+        Configuration conf = new Configuration();
+        conf.set("fs.defaultFS", hdfsPath);//hdfs://master:9000
+        FileSystem fileSystem = FileSystem.get(conf);
+        BufferedWriter bufferedWriter = new BufferedWriter(new OutputStreamWriter(fileSystem.create(path)));
+        bufferedWriter.write(content);
+        bufferedWriter.close();
     }
 
     private boolean isTerminator(char c) {

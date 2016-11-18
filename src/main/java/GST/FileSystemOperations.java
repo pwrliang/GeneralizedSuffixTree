@@ -138,21 +138,20 @@ public class FileSystemOperations {
     }
 
     public static void main(String[] args) throws IOException {
-        Path path = new Path("hdfs://master:9000/out1.txt");
-        URI uri = path.toUri();
-        String hdfsPath = String.format("%s://%s:%d", uri.getScheme(), uri.getHost(), uri.getPort());
-        Configuration conf = new Configuration();
-        conf.set("fs.default.name", hdfsPath);//hdfs://master:9000
-        FileSystem fileSystem = FileSystem.get(conf);
-        if (!fileSystem.exists(path))
-            fileSystem.createNewFile(path);
-        FSDataOutputStream outputStream = fileSystem.append(path);
-        long last = System.currentTimeMillis();
-        for (int i = 0; i < 1000; i++) {
-            outputStream.writeChars("line");
-        }
-        System.out.println(System.currentTimeMillis() - last);
-        outputStream.close();
+//        String s  = Main.readFile("hdfs://master:9000/exset/ex3/3406.txt");
+//        String s1 = SingleVersion.readLocalFile(new File("/home/gengl/Documents/exset/ex3/3406.txt"));
+//        System.out.println(s.equals(s1));
+
+        String s  = Main.readFile("hdfs://master:9000/exset/ex3/3439.txt");
+        String s1 = SingleVersion.readLocalFile(new File("/home/gengl/Documents/exset/ex3/3439.txt"));
+        System.out.println(s.length());
+        System.out.println(s1.length());
+        System.out.println(s);
+        System.out.println(s1);
+//         s  = Main.readFile("hdfs://master:9000/exset/ex3/3819.txt");
+//         s1 = SingleVersion.readLocalFile(new File("/home/gengl/Documents/exset/ex3/3819.txt"));
+//        System.out.println(s.equals(s1));
+
 //        if (args.length < 1) {
 //            System.out.println("Usage: hdfsclient add/read/delete/mkdir"
 //                    + " [<local_path> <hdfs_path>]");
@@ -215,6 +214,5 @@ public class FileSystemOperations {
 //            System.exit(1);
 //        }
 
-        System.out.println("Done!");
     }
 }
