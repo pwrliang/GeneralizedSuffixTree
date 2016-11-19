@@ -90,7 +90,7 @@ public class Main {
     }
 
     public static void main(String[] args) throws IOException {
-        SparkConf sparkConf = new SparkConf().setAppName("Generalized Suffix Tree");
+        SparkConf sparkConf = new SparkConf().set("spark.task.cpus","4").setAppName("Generalized Suffix Tree");
         final JavaSparkContext sc = new JavaSparkContext(sparkConf);
         final String inputURL = args[0];
         final String outputURL = args[1];
@@ -113,17 +113,21 @@ public class Main {
 
         //分配任务
         JavaRDD<Set<String>> vtRDD = sc.parallelize(new ArrayList<Set<String>>(setOfVirtualTrees));
+        System.out.println("vtRDD:"+vtRDD.count());
         JavaRDD<SlavesWorks> works = vtRDD.map(new Function<Set<String>, SlavesWorks>() {
             public SlavesWorks call(Set<String> v1) throws Exception {
                 return new SlavesWorks(S, v1, terminatorFilename, outputURL);
             }
         });
+        System.out.println("works:"+works.count());
+        JavaRDD<SlavesWorks> coalescedWorks = works.coalesce(4);
+        System.out.println("coalesced:"+coalescedWorks.count());
 //      执行任务
-        works.foreach(new VoidFunction<SlavesWorks>() {
-            public void call(SlavesWorks slavesWorks) throws Exception {
-                slavesWorks.work();
-            }
-        });
-        System.out.println("end===========================");
+//        works.foreach(new VoidFunction<SlavesWorks>() {
+//            public void call(SlavesWorks slavesWorks) throws Exception {
+//                slavesWorks.work();
+//            }
+//        });
+        System.out.println("==============end===============");
     }
 }
