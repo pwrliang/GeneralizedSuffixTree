@@ -120,14 +120,14 @@ public class Main {
             }
         });
         System.out.println("works:"+works.count());
-        JavaRDD<SlavesWorks> coalescedWorks = works.coalesce(4);
-        System.out.println("coalesced:"+coalescedWorks.count());
+//        JavaRDD<SlavesWorks> coalescedWorks = works.coalesce(4);
+//        System.out.println("coalesced:"+coalescedWorks.count());
 //      执行任务
-//        works.foreach(new VoidFunction<SlavesWorks>() {
-//            public void call(SlavesWorks slavesWorks) throws Exception {
-//                slavesWorks.work();
-//            }
-//        });
+        works.foreach(new VoidFunction<SlavesWorks>() {
+            public void call(SlavesWorks slavesWorks) throws Exception {
+                slavesWorks.work();
+            }
+        });
         System.out.println("==============end===============");
     }
 }

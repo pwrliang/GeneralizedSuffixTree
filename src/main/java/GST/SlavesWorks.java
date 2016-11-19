@@ -76,11 +76,11 @@ public class SlavesWorks implements Serializable {
             splitSubTree(S, Pi, root);
             traverseTree(root, terminatorFilename);
         }
-//        try {
-//            writeToFile(outputURL, "part-" + this.hashCode(), result.toString());
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//        }
+        try {
+            writeToFile(outputURL, "part-" + this.hashCode(), result.toString());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     private void writeToFile(String outputURL, String filename, String content) throws IOException {
