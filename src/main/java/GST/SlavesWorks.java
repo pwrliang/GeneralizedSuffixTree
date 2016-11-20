@@ -83,6 +83,16 @@ public class SlavesWorks implements Serializable {
         }
     }
 
+    public String workEx() {
+        for (String Pi : p) {
+            Object[] L_B = subTreePrepare(S, Pi);
+            TreeNode root = buildSubTree((List<int[]>) L_B[0], (List<TypeB>) L_B[1]);
+            splitSubTree(S, Pi, root);
+            traverseTree(root, terminatorFilename);
+        }
+        return result.toString();
+    }
+
     private void writeToFile(String outputURL, String filename, String content) throws IOException {
         Path path = new Path(outputURL + "/" + filename);
         URI uri = path.toUri();
@@ -104,7 +114,7 @@ public class SlavesWorks implements Serializable {
     }
 
     private int getRangeOfSymbols() {
-        return 200;
+        return 100;
     }
 
     public Set<Character> getAlphabet(List<String> S) {
@@ -119,13 +129,13 @@ public class SlavesWorks implements Serializable {
 
     //对原算法的改进，标记了需要拆分的叶节点
     //二位数组版本
-    public Set<Set<String>> verticalPartitioning(List<String> S, Set<Character> alphabet, int Fm) {
+    public Set<Set<String>> verticalPartitioning(List<String> S, Set<Character> alphabet, long Fm) {
         Set<Set<String>> virtualTree = new HashSet<Set<String>>();
         List<String> P_ = new LinkedList<String>();
         List<String> P = new LinkedList<String>();
         //每个key一个队列
         Map<String, List<int[]>> rank = new HashMap<String, List<int[]>>();
-        final Map<String, Integer> fpiList = new HashMap<String, Integer>();
+        final Map<String, Long> fpiList = new HashMap<String, Long>();
 
         //如果c是原生类型，就用+""转换，如果c是包装类型，就用toString
         for (Character s : alphabet)
@@ -153,7 +163,7 @@ public class SlavesWorks implements Serializable {
             String pi = P_.remove(0);//第一个元素总要被删，一开始就删了吧
             //SPLITTER+""转换成String要比new Character(SPLITTER).toString()快
             String piWithoutSplitter = pi.replace(SPLITTER + "", "").replace(SPLITTER_INSERTION + "", "");
-            int fpi = rank.get(piWithoutSplitter).size();
+            long fpi = rank.get(piWithoutSplitter).size();
 
             if (fpi > 0 && fpi <= Fm) {
                 P.add(pi);

@@ -15,11 +15,13 @@ import java.util.*;
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.VoidFunction;
 import org.apache.spark.util.AccumulatorV2;
+import scala.util.parsing.combinator.testing.Str;
 
 /**
  * Created by Liang on 16-11-9.
  */
 public class Main {
+
     public static String readFile(String url) throws IOException {
         Path path = new Path(url);
         URI uri = path.toUri();
@@ -90,10 +92,11 @@ public class Main {
     }
 
     public static void main(String[] args) throws IOException {
-        SparkConf sparkConf = new SparkConf().set("spark.task.cpus","4").setAppName("Generalized Suffix Tree");
+        SparkConf sparkConf = new SparkConf().set("spark.task.cpus", "4").setAppName("Generalized Suffix Tree");
         final JavaSparkContext sc = new JavaSparkContext(sparkConf);
         final String inputURL = args[0];
         final String outputURL = args[1];
+        final Date startDate = new Date();
         //开始读取文本文件
         List<String> pathList = listFiles(inputURL);
         final Map<Character, String> terminatorFilename = new HashMap<Character, String>();//终结符:文件名
@@ -108,18 +111,18 @@ public class Main {
         Set<Character> alphabet = masterWork.getAlphabet(S);
         //垂直分区
         //2 * 1024 * 1024 / 10
-        Set<Set<String>> setOfVirtualTrees = masterWork.verticalPartitioning(S, alphabet, 2 * 1024 * 1024 / 10);
-        System.out.println("Vertical Partition Finished");
-
+        Set<Set<String>> setOfVirtualTrees = masterWork.verticalPartitioning(S, alphabet, 1024 * 1024 * 1024);
+        System.out.println("==================Vertical Partition Finished setOfVirtualTrees:" + setOfVirtualTrees.size() + "================");
         //分配任务
-        JavaRDD<Set<String>> vtRDD = sc.parallelize(new ArrayList<Set<String>>(setOfVirtualTrees));
-        System.out.println("vtRDD:"+vtRDD.count());
+        final int PARTITIONS = 30;
+        JavaRDD<Set<String>> vtRDD = sc.parallelize(new ArrayList<Set<String>>(setOfVirtualTrees), PARTITIONS);
+        System.out.println("===========================vtRDD:" + vtRDD.count());
         JavaRDD<SlavesWorks> works = vtRDD.map(new Function<Set<String>, SlavesWorks>() {
             public SlavesWorks call(Set<String> v1) throws Exception {
                 return new SlavesWorks(S, v1, terminatorFilename, outputURL);
             }
         });
-        System.out.println("works:"+works.count());
+        System.out.println("=====================works:" + works.count());
 //        JavaRDD<SlavesWorks> coalescedWorks = works.coalesce(4);
 //        System.out.println("coalesced:"+coalescedWorks.count());
 //      执行任务
@@ -128,6 +131,7 @@ public class Main {
                 slavesWorks.work();
             }
         });
+        writeToFile(outputURL, "SUCCESS", String.format("START:%s\nEND:%s\n", startDate, new Date().toString()));
         System.out.println("==============end===============");
     }
 }

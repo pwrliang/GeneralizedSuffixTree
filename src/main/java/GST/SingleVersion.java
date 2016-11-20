@@ -40,7 +40,7 @@ public class SingleVersion {
     }
 
     public static void main(String[] args) throws IOException {
-        File folder = new File("/home/gengl/Documents/input/5000 1000");
+        File folder = new File("/home/gengl/Documents/dataset/exset/ex3");
         String[] fileNames = folder.list();
         final Map<Character, String> terminatorFilename = new HashMap<Character, String>();
         SlavesWorks masterWorks = new SlavesWorks();
@@ -56,13 +56,13 @@ public class SingleVersion {
 
 
         Set<Character> alphabet = masterWorks.getAlphabet(S);
-        Set<Set<String>> setOfVirtualTrees = masterWorks.verticalPartitioning(S, alphabet,  1024 * 1024 );
+        Set<Set<String>> setOfVirtualTrees = masterWorks.verticalPartitioning(S, alphabet,  1024 * 1024 * 1024 );
         System.out.println("Vertical Partition Finished");
         System.out.println(setOfVirtualTrees.size());
         for (Set<String> virtualTrees : setOfVirtualTrees) {
             System.out.println(virtualTrees.size());
-//            SlavesWorks slavesWorks = new SlavesWorks(S, virtualTrees, terminatorFilename);
-//            System.out.println(slavesWorks.work());
+            SlavesWorks slavesWorks = new SlavesWorks(S, virtualTrees, terminatorFilename,"");
+            System.out.println(slavesWorks.workEx());
         }
     }
 }
