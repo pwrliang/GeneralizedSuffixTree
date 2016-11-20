@@ -23,10 +23,12 @@
         <outputRelativeToContentRoot value="true" />
         <processorPath useClasspath="true" />
         <module name="GeneralizedSuffixTree" />
+        <module name="suffixtree" />
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>
       <module name="GeneralizedSuffixTree" target="1.5" />
+      <module name="suffixtree" target="1.5" />
     </bytecodeTargetLevel>
   </component>
 </project>
