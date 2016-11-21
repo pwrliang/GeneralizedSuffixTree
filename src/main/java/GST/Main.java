@@ -92,7 +92,8 @@ public class Main {
     }
 
     public static void main(String[] args) throws IOException {
-        SparkConf sparkConf = new SparkConf().set("spark.task.cpus", "4").setAppName("Generalized Suffix Tree");
+        SparkConf sparkConf = new SparkConf().
+                setAppName("Generalized Suffix Tree");
         final JavaSparkContext sc = new JavaSparkContext(sparkConf);
         final String inputURL = args[0];
         final String outputURL = args[1];
@@ -111,26 +112,34 @@ public class Main {
         Set<Character> alphabet = masterWork.getAlphabet(S);
         //垂直分区
         //2 * 1024 * 1024 / 10
-        Set<Set<String>> setOfVirtualTrees = masterWork.verticalPartitioning(S, alphabet, 1024 * 1024 * 1024);
+        System.out.println("==================Start Vertical Partition=================");
+        Set<Set<String>> setOfVirtualTrees = masterWork.verticalPartitioning(S, alphabet, 1024*1024*1024);
         System.out.println("==================Vertical Partition Finished setOfVirtualTrees:" + setOfVirtualTrees.size() + "================");
         //分配任务
-        final int PARTITIONS = 30;
-        JavaRDD<Set<String>> vtRDD = sc.parallelize(new ArrayList<Set<String>>(setOfVirtualTrees), PARTITIONS);
+        JavaRDD<Set<String>> vtRDD = sc.parallelize(new ArrayList<Set<String>>(setOfVirtualTrees));
         System.out.println("===========================vtRDD:" + vtRDD.count());
         JavaRDD<SlavesWorks> works = vtRDD.map(new Function<Set<String>, SlavesWorks>() {
             public SlavesWorks call(Set<String> v1) throws Exception {
                 return new SlavesWorks(S, v1, terminatorFilename, outputURL);
             }
         });
-        System.out.println("=====================works:" + works.count());
-//        JavaRDD<SlavesWorks> coalescedWorks = works.coalesce(4);
-//        System.out.println("coalesced:"+coalescedWorks.count());
-//      执行任务
+//        System.out.println("=====================works:" + works.count());
+////      执行任务
+//        works.foreachPartition(new VoidFunction<Iterator<SlavesWorks>>() {
+//            public void call(Iterator<SlavesWorks> slavesWorksIterator) throws Exception {
+//                while (slavesWorksIterator.hasNext()){
+//                    slavesWorksIterator.next().work();
+//                }
+//            }
+//        });
+        System.out.println("=====================Async============");
         works.foreach(new VoidFunction<SlavesWorks>() {
             public void call(SlavesWorks slavesWorks) throws Exception {
                 slavesWorks.work();
             }
         });
+        System.out.println("=====================Async Tasks Done============");
+        //org.apache.spark.api.java.AbstractJavaRDDLike
         writeToFile(outputURL, "SUCCESS", String.format("START:%s\nEND:%s\n", startDate, new Date().toString()));
         System.out.println("==============end===============");
     }
