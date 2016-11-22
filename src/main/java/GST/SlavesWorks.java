@@ -57,25 +57,18 @@ public class SlavesWorks implements Serializable {
     private Set<String> p;
     private Map<Character, String> terminatorFilename;
     private String outputURL;
-
-    private String Pi;
+    private int ELASTIC_RANGE;
 
     public SlavesWorks() {
 
     }
 
-    public SlavesWorks(List<String> S, Set<String> p, Map<Character, String> terminatorFilename, String outputURL) {
+    public SlavesWorks(List<String> S, Set<String> p, Map<Character, String> terminatorFilename, String outputURL, int ELASTIC_RANGE) {
         this.S = S;
         this.p = p;
         this.terminatorFilename = terminatorFilename;
         this.outputURL = outputURL;
-    }
-
-    public SlavesWorks(List<String> S, String Pi, Map<Character, String> terminatorFilename, String outputURL) {
-        this.S = S;
-        this.Pi = Pi;
-        this.terminatorFilename = terminatorFilename;
-        this.outputURL = outputURL;
+        this.ELASTIC_RANGE = ELASTIC_RANGE;
     }
 
     public void work() {
@@ -87,21 +80,8 @@ public class SlavesWorks implements Serializable {
             String s = traverseTree(root, terminatorFilename);
             result.append(s);
         }
-//        try {
-//            writeToFile(outputURL, "part-" + this.hashCode(), result.toString());
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//        }
-    }
-
-    public void work_v1() {
-        Object[] L_B = subTreePrepare(S, Pi);
-        TreeNode root = buildSubTree((List<int[]>) L_B[0], (List<TypeB>) L_B[1]);
-        splitSubTree(S, Pi, root);
-        String result = traverseTree(root, terminatorFilename);
-
         try {
-            writeToFile(outputURL, "part-" + this.hashCode(), result);
+            writeToFile(outputURL, "part-" + this.hashCode(), result.toString());
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -139,7 +119,7 @@ public class SlavesWorks implements Serializable {
     }
 
     private int getRangeOfSymbols() {
-        return 100;
+        return ELASTIC_RANGE;
     }
 
     public Set<Character> getAlphabet(List<String> S) {

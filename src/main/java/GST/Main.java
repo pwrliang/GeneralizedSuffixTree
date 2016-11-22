@@ -98,6 +98,9 @@ public class Main {
         final JavaSparkContext sc = new JavaSparkContext(sparkConf);
         final String inputURL = args[0];
         final String outputURL = args[1];
+        final int Fm = Integer.parseInt(args[2]);
+        final int ELASTIC_RANGE = Integer.parseInt(args[3]);
+
         final Date startDate = new Date();
         //开始读取文本文件
         List<String> pathList = listFiles(inputURL);
@@ -112,15 +115,28 @@ public class Main {
         }
         Set<Character> alphabet = masterWork.getAlphabet(S);
         //垂直分区
-        //2 * 1024 * 1024 / 10
-
-        Set<Set<String>> setOfVirtualTrees = masterWork.verticalPartitioning(S, alphabet, 1024 * 1024 * 2024);
+        //Fm     range  time
+        //5000 1000 data set
+        //102400 1000   2.6min
+        //102400 100   8.1min
+        //102400 400   3.9min
+        //102400 5000  3.1min
+        //102400 2000  2.5min
+        //102400 1500  2.7min
+        //102400 800   2.7min
+        //50000 1000   1.7min
+        //10000 1000   1.4min
+        //60000 1000   1.4min
+        //50000 1000 data set
+        //50000 1000  35min
+        System.out.println("==================Start Vertical Partition=======================");
+        Set<Set<String>> setOfVirtualTrees = masterWork.verticalPartitioning(S, alphabet, Fm);
         System.out.println("==================Vertical Partition Finished setOfVirtualTrees:" + setOfVirtualTrees.size() + "================");
         //分配任务
         JavaRDD<Set<String>> vtRDD = sc.parallelize(new ArrayList<Set<String>>(setOfVirtualTrees));
         JavaRDD<SlavesWorks> works = vtRDD.map(new Function<Set<String>, SlavesWorks>() {
             public SlavesWorks call(Set<String> v1) throws Exception {
-                return new SlavesWorks(S, v1, terminatorFilename, outputURL);
+                return new SlavesWorks(S, v1, terminatorFilename, outputURL, ELASTIC_RANGE);
             }
         });
 //      执行任务

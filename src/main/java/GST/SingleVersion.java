@@ -59,9 +59,9 @@ public class SingleVersion {
         Set<Set<String>> setOfVirtualTrees = masterWorks.verticalPartitioning(S, alphabet,  1024 * 1024 * 1024 );
         System.out.println("Vertical Partition Finished");
         System.out.println(setOfVirtualTrees.size());
-        for (Set<String> virtualTrees : setOfVirtualTrees) {
-            SlavesWorks slavesWorks = new SlavesWorks(S, virtualTrees, terminatorFilename,"");
-            System.out.println(slavesWorks.workEx());
-        }
+//        for (Set<String> virtualTrees : setOfVirtualTrees) {
+//            SlavesWorks slavesWorks = new SlavesWorks(S, virtualTrees, terminatorFilename,"");
+//            System.out.println(slavesWorks.workEx());
+//        }
     }
 }
