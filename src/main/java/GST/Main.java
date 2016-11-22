@@ -113,40 +113,24 @@ public class Main {
         Set<Character> alphabet = masterWork.getAlphabet(S);
         //垂直分区
         //2 * 1024 * 1024 / 10
-        System.out.println("==================Start Vertical Partition=================");
-        JavaRDD<String> virtualTrees = masterWork.verticalPartitioning_RDD(sc,S,alphabet,1024*1024);
-        JavaRDD<SlavesWorks> works = virtualTrees.map(new Function<String, SlavesWorks>() {
-            public SlavesWorks call(String v1) throws Exception {
-                return new SlavesWorks(S, v1,terminatorFilename, outputURL);
+
+        Set<Set<String>> setOfVirtualTrees = masterWork.verticalPartitioning(S, alphabet, 1024 * 1024 * 2024);
+        System.out.println("==================Vertical Partition Finished setOfVirtualTrees:" + setOfVirtualTrees.size() + "================");
+        //分配任务
+        JavaRDD<Set<String>> vtRDD = sc.parallelize(new ArrayList<Set<String>>(setOfVirtualTrees));
+        JavaRDD<SlavesWorks> works = vtRDD.map(new Function<Set<String>, SlavesWorks>() {
+            public SlavesWorks call(Set<String> v1) throws Exception {
+                return new SlavesWorks(S, v1, terminatorFilename, outputURL);
             }
         });
+//      执行任务
+        System.out.println("=====================Start Tasks============");
         works.foreach(new VoidFunction<SlavesWorks>() {
             public void call(SlavesWorks slavesWorks) throws Exception {
-                slavesWorks.work_v1();
+                slavesWorks.work();
             }
         });
-
-//        Set<Set<String>> setOfVirtualTrees = masterWork.verticalPartitioning(S, alphabet, Integer.MAX_VALUE );
-//        System.out.println("==================Vertical Partition Finished setOfVirtualTrees:" + setOfVirtualTrees.size() + "================");
-//        //分配任务
-//        JavaRDD<Set<String>> vtRDD = sc.parallelize(new ArrayList<Set<String>>(setOfVirtualTrees),setOfVirtualTrees.size());
-//        System.out.println("===========================vtRDD:" + vtRDD.count());
-//
-//        JavaRDD<SlavesWorks> works = vtRDD.map(new Function<Set<String>, SlavesWorks>() {
-//            public SlavesWorks call(Set<String> v1) throws Exception {
-//                return new SlavesWorks(S, v1, terminatorFilename, outputURL);
-//            }
-//        });
-//        System.out.println("=====================works:" + works.count());
-////      执行任务
-//        System.out.println("=====================Start Tasks============");
-//        works.foreach(new VoidFunction<SlavesWorks>() {
-//            public void call(SlavesWorks slavesWorks) throws Exception {
-//                slavesWorks.work();
-//            }
-//        });
-//        System.out.println("=====================Tasks Done============");
-        //org.apache.spark.api.java.AbstractJavaRDDLike
+        System.out.println("=====================Tasks Done============");
         writeToFile(outputURL, "SUCCESS", String.format("START:%s\nEND:%s\n", startDate, new Date().toString()));
         System.out.println("==============end===============");
     }
