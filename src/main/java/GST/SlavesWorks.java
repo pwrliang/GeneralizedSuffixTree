@@ -56,8 +56,6 @@ public class SlavesWorks implements Serializable {
     private List<String> S;
     private Set<String> p;
     private Map<Character, String> terminatorFilename;
-    private Stack<TreeNode> path = new Stack<TreeNode>();
-    private StringBuffer result = new StringBuffer();
     private String outputURL;
 
     private String Pi;
@@ -81,11 +79,12 @@ public class SlavesWorks implements Serializable {
     }
 
     public void work() {
+        StringBuilder result = new StringBuilder();
         for (String Pi : p) {
             Object[] L_B = subTreePrepare(S, Pi);
             TreeNode root = buildSubTree((List<int[]>) L_B[0], (List<TypeB>) L_B[1]);
             splitSubTree(S, Pi, root);
-            String s = traverseTree_NoRecursive(root, terminatorFilename);
+            String s = traverseTree(root, terminatorFilename);
             result.append(s);
         }
         try {
@@ -99,10 +98,10 @@ public class SlavesWorks implements Serializable {
         Object[] L_B = subTreePrepare(S, Pi);
         TreeNode root = buildSubTree((List<int[]>) L_B[0], (List<TypeB>) L_B[1]);
         splitSubTree(S, Pi, root);
-        traverseTree(root, terminatorFilename);
+        String result = traverseTree(root, terminatorFilename);
 
         try {
-            writeToFile(outputURL, "part-" + this.hashCode(), result.toString());
+            writeToFile(outputURL, "part-" + this.hashCode(), result);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -114,8 +113,7 @@ public class SlavesWorks implements Serializable {
             Object[] L_B = subTreePrepare(S, Pi);
             TreeNode root = buildSubTree((List<int[]>) L_B[0], (List<TypeB>) L_B[1]);
             splitSubTree(S, Pi, root);
-            stringBuilder.append(traverseTree_NoRecursive(root, terminatorFilename));
-//            traverseTree(root, terminatorFilename);
+            stringBuilder.append(traverseTree(root, terminatorFilename));
         }
         return stringBuilder.toString();
     }
@@ -772,81 +770,24 @@ public class SlavesWorks implements Serializable {
         }
     }
 
-    public void traverseTree(TreeNode root) {
-        if (root == null) {
-            if (path.isEmpty())
-                return;
-            TreeNode leaf = path.pop();
-            if (leaf.index != null) {
-                System.out.print(path.size() + " ");
-                for (int i = 1; i < path.size(); i++)
-                    System.out.print(path.get(i).data);
-                System.out.println(leaf.data + " " + leaf.index[1]);
-            }
-        } else {
-            path.push(root);
-            traverseTree(root.leftChild);
-            traverseTree(root.rightSibling);
-        }
-    }
-
-    public void traverseTree(TreeNode root, Map<Character, String> terminatorFileName) {
-        if (root == null) {
-            if (path.isEmpty())
-                return;
-            TreeNode leaf = path.pop();
-            if (leaf.index != null) {
-                String line = String.format("%d %s:%d\n", path.size(), terminatorFileName.get(leaf.data.charAt(leaf.data.length() - 1)), leaf.index[1]);
-                result.append(line);
-//                System.out.println(path.size() + " " + terminatorFileName.get(leaf.data.charAt(leaf.data.length() - 1)) + ":" + leaf.index[1]);
-            }
-        } else {
-            path.push(root);
-            traverseTree(root.leftChild, terminatorFileName);
-            traverseTree(root.rightSibling, terminatorFileName);
-        }
-    }
-
-    public String traverseTree_NoRecursive(TreeNode root, Map<Character, String> terminatorFileName) {
+    public String traverseTree(TreeNode root, Map<Character, String> terminatorFileName) {
         Stack<TreeNode> stack = new Stack<TreeNode>();
         TreeNode node = root;
         StringBuilder sb = new StringBuilder();
-        stack.push(node);
-        while (!stack.isEmpty()) {
+        if (root == null)
+            return null;
+        while (node != null || !stack.isEmpty()) {
+            while (node != null) {
+                stack.push(node);
+                node = node.leftChild;
+            }
             node = stack.pop();
-            //is leaf node
+            //找到叶子节点，打印栈
             if (node.leftChild == null) {
-                //size+2 to fix deep, due to lack of root and leaf in the stack
-                String line = String.format("%d %s:%d\n", stack.size()+2, terminatorFileName.get(node.data.charAt(node.data.length() - 1)), node.index[1]);
-                sb.append(line);
+                sb.append(String.format("%d %s:%d\n", stack.size(), terminatorFileName.get(node.data.charAt(node.data.length() - 1)), node.index[1]));
             }
-
-            if (node.rightSibling != null)
-                stack.push(node.rightSibling);
-            if (node.leftChild != null) {
-                stack.push(node.leftChild);
-            }
+            node = node.rightSibling;
         }
         return sb.toString();
-    }
-
-    public void traverseTree(TreeNode root, Map<Character, String> terminatorFileName, BufferedWriter outputStream) {
-        if (root == null) {
-            if (path.isEmpty())
-                return;
-            TreeNode leaf = path.pop();
-            if (leaf.index != null) {
-                try {
-                    outputStream.write(path.size() + " " + terminatorFileName.get(leaf.data.charAt(leaf.data.length() - 1)) + ":" + leaf.index[1]);
-                    outputStream.newLine();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-        } else {
-            path.push(root);
-            traverseTree(root.leftChild, terminatorFileName);
-            traverseTree(root.rightSibling, terminatorFileName);
-        }
     }
 }

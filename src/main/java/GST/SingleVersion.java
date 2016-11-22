@@ -40,7 +40,7 @@ public class SingleVersion {
     }
 
     public static void main(String[] args) throws IOException {
-        File folder = new File("/home/gengl/Documents/dataset/exset/ex3");
+        File folder = new File("/home/gengl/Documents/exset/ex3");
         String[] fileNames = folder.list();
         final Map<Character, String> terminatorFilename = new HashMap<Character, String>();
         SlavesWorks masterWorks = new SlavesWorks();
@@ -60,7 +60,6 @@ public class SingleVersion {
         System.out.println("Vertical Partition Finished");
         System.out.println(setOfVirtualTrees.size());
         for (Set<String> virtualTrees : setOfVirtualTrees) {
-            System.out.println(virtualTrees.size());
             SlavesWorks slavesWorks = new SlavesWorks(S, virtualTrees, terminatorFilename,"");
             System.out.println(slavesWorks.workEx());
         }
