@@ -4,6 +4,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.*;
 import org.apache.hadoop.util.*;
 import org.apache.hadoop.util.Options;
+import org.apache.spark.HashPartitioner;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
@@ -91,7 +92,7 @@ public class Main {
         writer.close();
     }
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) throws IOException, InterruptedException {
         SparkConf sparkConf = new SparkConf().
                 setAppName("Generalized Suffix Tree");
         final JavaSparkContext sc = new JavaSparkContext(sparkConf);
@@ -113,32 +114,38 @@ public class Main {
         //垂直分区
         //2 * 1024 * 1024 / 10
         System.out.println("==================Start Vertical Partition=================");
-        Set<Set<String>> setOfVirtualTrees = masterWork.verticalPartitioning(S, alphabet, 1024*1024*1024);
-        System.out.println("==================Vertical Partition Finished setOfVirtualTrees:" + setOfVirtualTrees.size() + "================");
-        //分配任务
-        JavaRDD<Set<String>> vtRDD = sc.parallelize(new ArrayList<Set<String>>(setOfVirtualTrees));
-        System.out.println("===========================vtRDD:" + vtRDD.count());
-        JavaRDD<SlavesWorks> works = vtRDD.map(new Function<Set<String>, SlavesWorks>() {
-            public SlavesWorks call(Set<String> v1) throws Exception {
-                return new SlavesWorks(S, v1, terminatorFilename, outputURL);
+        JavaRDD<String> virtualTrees = masterWork.verticalPartitioning_RDD(sc,S,alphabet,1024*1024);
+        JavaRDD<SlavesWorks> works = virtualTrees.map(new Function<String, SlavesWorks>() {
+            public SlavesWorks call(String v1) throws Exception {
+                return new SlavesWorks(S, v1,terminatorFilename, outputURL);
             }
         });
-//        System.out.println("=====================works:" + works.count());
-////      执行任务
-//        works.foreachPartition(new VoidFunction<Iterator<SlavesWorks>>() {
-//            public void call(Iterator<SlavesWorks> slavesWorksIterator) throws Exception {
-//                while (slavesWorksIterator.hasNext()){
-//                    slavesWorksIterator.next().work();
-//                }
-//            }
-//        });
-        System.out.println("=====================Async============");
         works.foreach(new VoidFunction<SlavesWorks>() {
             public void call(SlavesWorks slavesWorks) throws Exception {
-                slavesWorks.work();
+                slavesWorks.work_v1();
             }
         });
-        System.out.println("=====================Async Tasks Done============");
+
+//        Set<Set<String>> setOfVirtualTrees = masterWork.verticalPartitioning(S, alphabet, Integer.MAX_VALUE );
+//        System.out.println("==================Vertical Partition Finished setOfVirtualTrees:" + setOfVirtualTrees.size() + "================");
+//        //分配任务
+//        JavaRDD<Set<String>> vtRDD = sc.parallelize(new ArrayList<Set<String>>(setOfVirtualTrees),setOfVirtualTrees.size());
+//        System.out.println("===========================vtRDD:" + vtRDD.count());
+//
+//        JavaRDD<SlavesWorks> works = vtRDD.map(new Function<Set<String>, SlavesWorks>() {
+//            public SlavesWorks call(Set<String> v1) throws Exception {
+//                return new SlavesWorks(S, v1, terminatorFilename, outputURL);
+//            }
+//        });
+//        System.out.println("=====================works:" + works.count());
+////      执行任务
+//        System.out.println("=====================Start Tasks============");
+//        works.foreach(new VoidFunction<SlavesWorks>() {
+//            public void call(SlavesWorks slavesWorks) throws Exception {
+//                slavesWorks.work();
+//            }
+//        });
+//        System.out.println("=====================Tasks Done============");
         //org.apache.spark.api.java.AbstractJavaRDDLike
         writeToFile(outputURL, "SUCCESS", String.format("START:%s\nEND:%s\n", startDate, new Date().toString()));
         System.out.println("==============end===============");
