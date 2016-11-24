@@ -7,11 +7,9 @@ import org.apache.hadoop.fs.Path;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
+import scala.util.parsing.combinator.testing.Str;
 
-import java.io.BufferedWriter;
-import java.io.IOException;
-import java.io.OutputStreamWriter;
-import java.io.Serializable;
+import java.io.*;
 import java.net.URI;
 import java.util.*;
 
@@ -93,7 +91,9 @@ public class SlavesWorks implements Serializable {
             Object[] L_B = subTreePrepare(S, Pi);
             TreeNode root = buildSubTree((List<int[]>) L_B[0], (List<TypeB>) L_B[1]);
             splitSubTree(S, Pi, root);
-            stringBuilder.append(traverseTree(root, terminatorFilename));
+            stringBuilder.append("===========================pi:"+Pi+"===================\n");
+            stringBuilder.append(traverseTree(root,terminatorFilename));
+//            printTree(Pi.replace(SPLITTER, '-').replace(SPLITTER_INSERTION, '_'), root, terminatorFilename);
         }
         return stringBuilder.toString();
     }
@@ -665,4 +665,39 @@ public class SlavesWorks implements Serializable {
         }
         return sb.toString();
     }
+
+    //dot -Tpng -O filename
+    public void traverseTreeWithGraph(PrintWriter out, TreeNode root, Map<Character, String> terminatorFileName) {
+        if (root == null) {
+        } else {
+            if (root.leftChild == null) {//叶节点
+                out.println("\tnode" + root.hashCode() + " [label=\"" + root.index[0] + ":" + root.index[1] + "\",shape=circle]");
+                out.println("\tnode" + root.parent.hashCode() + " -> node" + root.hashCode() + " [label=\"" + root.data.replace(' ', '*') + "\",weight=3]");
+            } else if (root.parent != null) {//非根节点
+                out.println("\tnode" + root.hashCode() + " [label=\"\",style=filled,fillcolor=lightgrey,shape=circle,width=.07,height=.07]");
+                out.println("\tnode" + root.parent.hashCode() + " -> node" + root.hashCode() + " [label=\"" + root.data.replace(' ', '*') + "\",weight=3]");
+            } else {//根节点
+                out.println("\tnode" + root.hashCode() + " [label=\"\",style=filled,fillcolor=lightgrey,shape=circle,width=.1,height=.1];");
+            }
+            traverseTreeWithGraph(out, root.leftChild, terminatorFileName);
+            traverseTreeWithGraph(out, root.rightSibling, terminatorFileName);
+        }
+    }
+
+    void printTree(String treeName, TreeNode root, Map<Character, String> terminatorFileName) {
+        PrintWriter out = null;
+        try {
+            out = new PrintWriter(new FileWriter("D:\\Contest\\exset\\graph\\" + this.hashCode() + ".dot"));
+            out.println("digraph {");
+            out.println("\tedge [arrowsize=0.4,fontsize=10]");
+            traverseTreeWithGraph(out, root, terminatorFileName);
+            out.println("}");
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            if (out != null)
+                out.close();
+        }
+    }
+
 }
