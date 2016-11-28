@@ -127,8 +127,9 @@ public class Main {
         //50000 1000   1.7min
         //10000 1000   1.4min
         //60000 1000   1.4min
+        //30000 1000   1.2min
         //50000 1000 data set
-        //50000 1000  35min
+        //50000 1000  37min
         System.out.println("==================Start Vertical Partition=======================");
         Set<Set<String>> setOfVirtualTrees = masterWork.verticalPartitioning(S, alphabet, Fm);
         System.out.println("==================Vertical Partition Finished setOfVirtualTrees:" + setOfVirtualTrees.size() + "================");

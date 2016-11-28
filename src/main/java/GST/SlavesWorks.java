@@ -93,9 +93,9 @@ public class SlavesWorks implements Serializable {
             Object[] L_B = subTreePrepare(S, Pi);
             TreeNode root = buildSubTree((List<int[]>) L_B[0], (List<TypeB>) L_B[1]);
             splitSubTree(S, Pi, root);
-            stringBuilder.append(traverseTree(root, terminatorFilename));
+            traverseTree_(root, terminatorFilename);
         }
-        return stringBuilder.toString();
+        return result.toString();
     }
 
     private void writeToFile(String outputURL, String filename, String content) throws IOException {
@@ -664,5 +664,23 @@ public class SlavesWorks implements Serializable {
             node = node.rightSibling;
         }
         return sb.toString();
+    }
+    private Stack<TreeNode> path = new Stack<TreeNode>();
+    private StringBuffer result = new StringBuffer();
+    public void traverseTree_(TreeNode root, Map<Character, String> terminatorFileName) {
+        if (root == null) {
+            if (path.isEmpty())
+                return;
+            TreeNode leaf = path.pop();
+            if (leaf.index != null) {
+                String line = String.format("%d %s:%d\n", path.size(), terminatorFileName.get(leaf.data.charAt(leaf.data.length() - 1)), leaf.index[1]);
+                result.append(line);
+//                System.out.println(path.size() + " " + terminatorFileName.get(leaf.data.charAt(leaf.data.length() - 1)) + ":" + leaf.index[1]);
+            }
+        } else {
+            path.push(root);
+            traverseTree_(root.leftChild, terminatorFileName);
+            traverseTree_(root.rightSibling, terminatorFileName);
+        }
     }
 }
