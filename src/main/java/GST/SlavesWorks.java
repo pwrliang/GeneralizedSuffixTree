@@ -7,19 +7,19 @@ import org.apache.hadoop.fs.Path;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
+import scala.util.parsing.combinator.testing.Str;
 
-import java.io.BufferedWriter;
-import java.io.IOException;
-import java.io.OutputStreamWriter;
-import java.io.Serializable;
+
+import java.io.*;
 import java.net.URI;
 import java.util.*;
 
 /**
  * Created by lib on 16-11-11.
+ * This is the implementation of Era
  */
 public class SlavesWorks implements Serializable {
-    public static class TypeB {
+    private static class TypeB {
         char c1, c2;
         int common;
 
@@ -33,7 +33,7 @@ public class SlavesWorks implements Serializable {
         }
     }
 
-    public static class TreeNode {
+    private static class TreeNode {
         String data;
         int[] index;
         TreeNode parent;
@@ -49,21 +49,21 @@ public class SlavesWorks implements Serializable {
         }
     }
 
-    private char terminator = 43000;
-    public static final char SPLITTER_INSERTION = 57001;
-    public static final char SPLITTER = 57002;
+    private char terminator = 43000;//起始终结符
+    private static final char SPLITTER_INSERTION = 57001;//拆分并插入叶节点
+    private static final char SPLITTER = 57002;//只拆分，不插入叶节点
 
-    private List<String> S;
-    private Set<String> p;
-    private Map<Character, String> terminatorFilename;
-    private String outputURL;
-    private int ELASTIC_RANGE;
+    private List<String> S;//字符串列表
+    private Set<String> p;//pi列表
+    private Map<Character, String> terminatorFilename;//终结符-文件名映射
+    private String outputURL;//位于HDFS上的路径，用于结果保存
+    private int ELASTIC_RANGE;//弹性范围
 
-    public SlavesWorks() {
+    SlavesWorks() {
 
     }
 
-    public SlavesWorks(List<String> S, Set<String> p, Map<Character, String> terminatorFilename, String outputURL, int ELASTIC_RANGE) {
+    SlavesWorks(List<String> S, Set<String> p, Map<Character, String> terminatorFilename, String outputURL, int ELASTIC_RANGE) {
         this.S = S;
         this.p = p;
         this.terminatorFilename = terminatorFilename;
@@ -71,7 +71,11 @@ public class SlavesWorks implements Serializable {
         this.ELASTIC_RANGE = ELASTIC_RANGE;
     }
 
-    public void work() {
+    /**
+     * 开始建树并写入HDFS中
+     *
+     * */
+    void work() {
         StringBuilder result = new StringBuilder();
         for (String Pi : p) {
             Object[] L_B = subTreePrepare(S, Pi);
@@ -87,18 +91,27 @@ public class SlavesWorks implements Serializable {
         }
     }
 
-    public String workEx() {
+    /**
+    * 单机版，用于测试
+    * */
+    String workEx() {
         StringBuilder stringBuilder = new StringBuilder();
         for (String Pi : p) {
             Object[] L_B = subTreePrepare(S, Pi);
             TreeNode root = buildSubTree((List<int[]>) L_B[0], (List<TypeB>) L_B[1]);
             splitSubTree(S, Pi, root);
-            traverseTree_(root, terminatorFilename);
+            stringBuilder.append(traverseTree(root, terminatorFilename));
         }
-        return result.toString();
+        return stringBuilder.toString();
     }
 
-    private void writeToFile(String outputURL, String filename, String content) throws IOException {
+    /**
+     * 将内容写入HDFS中
+     * @param outputURL HDFS的URL
+     * @param filename 文件名
+     * @param content 内容
+     * */
+    void writeToFile(String outputURL, String filename, String content) throws IOException {
         Path path = new Path(outputURL + "/" + filename);
         URI uri = path.toUri();
         String hdfsPath = String.format("%s://%s:%d", uri.getScheme(), uri.getHost(), uri.getPort());
@@ -110,19 +123,34 @@ public class SlavesWorks implements Serializable {
         bufferedWriter.close();
     }
 
+    /**
+     * 判断字符是否为终结符
+     *
+     * @param c 被测试的字符
+     * @return 是终结符返回true否则返回false
+     * */
     private boolean isTerminator(char c) {
         return c >= 43000 && c <= 57000;
     }
 
-    public char nextTerminator() {
+    /**
+     * 产生不重复的终结符
+     * */
+    char nextTerminator() {
         return terminator++;
     }
 
+    /**
+     * 返回算法参数-弹性范围
+     */
     private int getRangeOfSymbols() {
         return ELASTIC_RANGE;
     }
 
-    public Set<Character> getAlphabet(List<String> S) {
+    /**
+     * 扫描所有串，生成字母表
+     * */
+    Set<Character> getAlphabet(List<String> S) {
         Set<Character> alphabet = new HashSet<Character>();
         for (String line : S) {
             for (int j = 0; j < line.length() - 1; j++) {
@@ -132,9 +160,14 @@ public class SlavesWorks implements Serializable {
         return alphabet;
     }
 
-    //对原算法的改进，标记了需要拆分的叶节点
-    //二位数组版本
-    public Set<Set<String>> verticalPartitioning(List<String> S, Set<Character> alphabet, long Fm) {
+    /**
+     * 垂直分区
+     * @param S 字符串列表
+     * @param alphabet 字母表
+     * @param Fm 参数Fm
+     * @return 返回集合列表，每个元素是集合，集合内容是pi
+     * */
+    Set<Set<String>> verticalPartitioning(List<String> S, Set<Character> alphabet, long Fm) {
         Set<Set<String>> virtualTree = new HashSet<Set<String>>();
         List<String> P_ = new LinkedList<String>();
         List<String> P = new LinkedList<String>();
@@ -169,7 +202,6 @@ public class SlavesWorks implements Serializable {
             //SPLITTER+""转换成String要比new Character(SPLITTER).toString()快
             String piWithoutSplitter = pi.replace(SPLITTER + "", "").replace(SPLITTER_INSERTION + "", "");
             long fpi = rank.get(piWithoutSplitter).size();
-
             if (fpi > 0 && fpi <= Fm) {
                 P.add(pi);
                 fpiList.put(pi, fpi);
@@ -181,6 +213,7 @@ public class SlavesWorks implements Serializable {
                 }
                 //这里j为RankPi的元素值
                 List<int[]> piIndexes = rank.get(piWithoutSplitter);
+
                 if (piIndexes.size() == 1) {
                     int[] index = piIndexes.get(0);
                     P_.add(pi + S.get(index[0]).charAt(index[1] + 1));
@@ -200,21 +233,49 @@ public class SlavesWorks implements Serializable {
                             String queueName = piWithoutSplitter + c;
                             //对于第一个非空队列，使用拆分、插入标记
                             //对于其他的使用拆分标记
-                            if (rank.get(queueName).size() > 0 && !firstNoEmpty) {
-                                P_.add(pi + SPLITTER_INSERTION + c);
-                                firstNoEmpty = true;
-                                //引入一个拆分插入符号后，修改pi，下次循环使用拆分符
-                                pi = pi.replace(SPLITTER_INSERTION, SPLITTER);
-                            } else {
-                                //对于其他元素，使用拆分标记
-                                if (rank.get(piWithoutSplitter + c + "").size() > 0)
+                            if (rank.get(queueName).size() > 0) {
+                                if (!firstNoEmpty) {
+                                    P_.add(pi + SPLITTER_INSERTION + c);
+                                    firstNoEmpty = true;
+                                    //引入一个拆分插入符号后，修改pi，下次循环使用拆分符
+                                    pi = pi.replace(SPLITTER_INSERTION, SPLITTER);
+                                } else {
+                                    //对于其他元素，使用拆分标记
                                     P_.add(pi + SPLITTER + c);
-
+                                }
                             }
                         }
                     } else {
+                        //修复部分节点多拆分的问题
+                        int count = 0;
                         for (Character c : alphabet) {
-                            P_.add(pi + SPLITTER + c);
+                            if (rank.get(piWithoutSplitter + c).size() > 0) {
+                                count++;
+                                //优化
+                                if (count > 1)
+                                    break;
+                            }
+                        }
+                        if (count > 1) {
+                            boolean firstNoEmpty = false;
+                            for (Character c : alphabet) {
+                                String queueName = piWithoutSplitter + c;
+                                if (rank.get(queueName).size() > 0) {
+                                    //这里对于第一个非空使用SPLITTER_INSERTION，扩展其他使用SPLITTER
+                                    if (!firstNoEmpty) {
+                                        P_.add(pi + SPLITTER + c);
+                                        firstNoEmpty = true;
+                                        pi = pi.replace(SPLITTER_INSERTION, SPLITTER);
+                                    } else {
+                                        P_.add(pi + SPLITTER + c);
+                                    }
+                                }
+                            }
+                        } else {
+                            for (Character c : alphabet) {
+                                if (rank.get(piWithoutSplitter + c).size() > 0)
+                                    P_.add(pi + c);
+                            }
                         }
                     }
                 }
@@ -256,8 +317,13 @@ public class SlavesWorks implements Serializable {
         return virtualTree;
     }
 
-    //二维版本的subTreePrepare
-    public Object[] subTreePrepare(List<String> S, String p) {
+    /**
+     * 子树准备
+     * @param S 字符串列表
+     * @param p 垂直分区产生的pi
+     * @return 返回一个数组Object[2],Object[0]装的是L，Object[1]装的是B
+     * */
+    private Object[] subTreePrepare(List<String> S, String p) {
         class RPL {
             private String R;
             private int P;
@@ -471,7 +537,13 @@ public class SlavesWorks implements Serializable {
         return LB;
     }
 
-    public TreeNode buildSubTree(List<int[]> L, List<TypeB> B) {
+    /**
+     * 构建子树
+     * @param L 子树准备返回的L
+     * @param B 子树准备返回的B
+     * @return 返回树的根节点
+     * */
+    private TreeNode buildSubTree(List<int[]> L, List<TypeB> B) {
         TreeNode root = new SlavesWorks.TreeNode();
         TreeNode u_ = new SlavesWorks.TreeNode();
         root.parent = null;
@@ -550,8 +622,12 @@ public class SlavesWorks implements Serializable {
         return root;
     }
 
-    //拆法1，对被拆节点位置不变，新建节点，把被拆节点信息转移到新节点上，新节点作为被拆节点的左孩子
-    public void splitSubTree(List<String> S, String p, TreeNode root) {
+    /**拆法1，对被拆节点位置不变，新建节点，把被拆节点信息转移到新节点上，新节点作为被拆节点的左孩子
+     * @param S 字符串列表
+     * @param p 垂直分区产生的pi
+     * @param root 构建子树产生的根节点
+     */
+    private void splitSubTree(List<String> S, String p, TreeNode root) {
         TreeNode currNode = root.leftChild;
         int lastSplit = 0;
         StringBuilder path = new StringBuilder();
@@ -594,8 +670,12 @@ public class SlavesWorks implements Serializable {
         }
     }
 
-    //拆法2，新建节点，并让新建节点作为被拆节点的父节点
-    public void splitSubTree_V2(List<String> S, String p, TreeNode root) {
+    /**拆法2，新建节点，并让新建节点作为被拆节点的父节点
+     * @param S 字符串列表
+     * @param p 垂直分区产生的pi
+     * @param root 构建子树产生的根节点
+     */
+    private void splitSubTree_V2(List<String> S, String p, TreeNode root) {
         TreeNode currNode = root.leftChild;
         int lastSplit = 0;
         StringBuilder path = new StringBuilder();
@@ -645,7 +725,14 @@ public class SlavesWorks implements Serializable {
         }
     }
 
-    public String traverseTree(TreeNode root, Map<Character, String> terminatorFileName) {
+    /**
+     * 遍历树，并打印所有叶节点
+     *
+     * @param root 树的根节点
+     * @param terminatorFileName 终结符-文件名对应列表
+     * @return 返回一棵树所有叶节点遍历结果
+     * */
+    private String traverseTree(TreeNode root, Map<Character, String> terminatorFileName) {
         Stack<TreeNode> stack = new Stack<TreeNode>();
         TreeNode node = root;
         StringBuilder sb = new StringBuilder();
@@ -665,22 +752,39 @@ public class SlavesWorks implements Serializable {
         }
         return sb.toString();
     }
-    private Stack<TreeNode> path = new Stack<TreeNode>();
-    private StringBuffer result = new StringBuffer();
-    public void traverseTree_(TreeNode root, Map<Character, String> terminatorFileName) {
+
+    //dot -Tpng -O filename
+    private void traverseTreeWithGraph(PrintWriter out, TreeNode root, Map<Character, String> terminatorFileName) {
         if (root == null) {
-            if (path.isEmpty())
-                return;
-            TreeNode leaf = path.pop();
-            if (leaf.index != null) {
-                String line = String.format("%d %s:%d\n", path.size(), terminatorFileName.get(leaf.data.charAt(leaf.data.length() - 1)), leaf.index[1]);
-                result.append(line);
-//                System.out.println(path.size() + " " + terminatorFileName.get(leaf.data.charAt(leaf.data.length() - 1)) + ":" + leaf.index[1]);
-            }
         } else {
-            path.push(root);
-            traverseTree_(root.leftChild, terminatorFileName);
-            traverseTree_(root.rightSibling, terminatorFileName);
+            if (root.leftChild == null) {//叶节点
+                out.println("\tnode" + root.hashCode() + " [label=\"" + root.index[0] + ":" + root.index[1] + "\",shape=circle]");
+                out.println("\tnode" + root.parent.hashCode() + " -> node" + root.hashCode() + " [label=\"" + root.data.replace(' ', '*') + "\",weight=3]");
+            } else if (root.parent != null) {//非根节点
+                out.println("\tnode" + root.hashCode() + " [label=\"\",style=filled,fillcolor=lightgrey,shape=circle,width=.07,height=.07]");
+                out.println("\tnode" + root.parent.hashCode() + " -> node" + root.hashCode() + " [label=\"" + root.data.replace(' ', '*') + "\",weight=3]");
+            } else {//根节点
+                out.println("\tnode" + root.hashCode() + " [label=\"\",style=filled,fillcolor=lightgrey,shape=circle,width=.1,height=.1];");
+            }
+            traverseTreeWithGraph(out, root.leftChild, terminatorFileName);
+            traverseTreeWithGraph(out, root.rightSibling, terminatorFileName);
         }
     }
+
+    void printTree(String treeName, TreeNode root, Map<Character, String> terminatorFileName) {
+        PrintWriter out = null;
+        try {
+            out = new PrintWriter(new FileWriter("D:\\Liang_Projects\\exset\\graph\\" + treeName + ".dot"));
+            out.println("digraph {");
+            out.println("\tedge [arrowsize=0.4,fontsize=10]");
+            traverseTreeWithGraph(out, root, terminatorFileName);
+            out.println("}");
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            if (out != null)
+                out.close();
+        }
+    }
+
 }
