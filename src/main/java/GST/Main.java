@@ -2,28 +2,23 @@ package GST;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.*;
-import org.apache.hadoop.util.*;
-import org.apache.hadoop.util.Options;
-import org.apache.spark.HashPartitioner;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
-
 import java.io.*;
 import java.net.URI;
 import java.util.*;
-
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.VoidFunction;
-import org.apache.spark.util.AccumulatorV2;
-import scala.util.parsing.combinator.testing.Str;
+
 
 /**
  * Created by Liang on 16-11-9.
+ * This is the enter point of program
  */
 public class Main {
 
-    public static String readFile(String url) throws IOException {
+    private static String readFile(String url) throws IOException {
         Path path = new Path(url);
         URI uri = path.toUri();
         String hdfsPath = String.format("%s://%s:%d", uri.getScheme(), uri.getHost(), uri.getPort());
@@ -40,7 +35,7 @@ public class Main {
     }
 
 
-    public static List<String> listFiles(String url) throws IOException {
+    private static List<String> listFiles(String url) throws IOException {
         Path path = new Path(url);
         URI uri = path.toUri();
         String hdfsPath = String.format("%s://%s:%d", uri.getScheme(), uri.getHost(), uri.getPort());
@@ -55,41 +50,6 @@ public class Main {
             pathList.add(file.getPath().toString());
         }
         return pathList;
-    }
-
-    public static void appendToFile(String url, String line) throws IOException {
-        Path path = new Path(url);
-        URI uri = path.toUri();
-        String hdfsPath = String.format("%s://%s:%d", uri.getScheme(), uri.getHost(), uri.getPort());
-        Configuration conf = new Configuration();
-        conf.set("fs.defaultFS", hdfsPath);//hdfs://master:9000
-        FileSystem fileSystem = FileSystem.get(conf);
-        FSDataOutputStream outputStream = fileSystem.append(path);
-        outputStream.writeChars(line);
-        outputStream.close();
-    }
-
-    static void writeToFile(String outputURL, String filename, String content) throws IOException {
-        Path path = new Path(outputURL + "/" + filename);
-        URI uri = path.toUri();
-        String hdfsPath = String.format("%s://%s:%d", uri.getScheme(), uri.getHost(), uri.getPort());
-        Configuration conf = new Configuration();
-        conf.set("fs.defaultFS", hdfsPath);//hdfs://master:9000
-        FileSystem fileSystem = FileSystem.get(conf);
-        BufferedWriter bufferedWriter = new BufferedWriter(new OutputStreamWriter(fileSystem.create(path)));
-        bufferedWriter.write(content);
-        bufferedWriter.close();
-    }
-
-    static void writeToLocal(String path, String content) throws IOException {
-        File file = new File(path);
-        if (file.exists())
-            file.delete();
-        file.createNewFile();
-        BufferedWriter writer = new BufferedWriter(new FileWriter(file));
-//        writer.write(content);
-        writer.append(content);
-        writer.close();
     }
 
     public static void main(String[] args) throws IOException, InterruptedException {
@@ -147,7 +107,8 @@ public class Main {
             }
         });
         System.out.println("=====================Tasks Done============");
-        writeToFile(outputURL, "SUCCESS", String.format("START:%s\nEND:%s\n", startDate, new Date().toString()));
+        masterWork.writeToFile(outputURL, "SUCCESS", String.format("START:%s\nEND:%s\n", startDate, new Date().toString()));
         System.out.println("==============end===============");
     }
+
 }

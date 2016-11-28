@@ -1,21 +1,13 @@
 package GST;
 
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.*;
-import scala.util.parsing.combinator.testing.Str;
-
 import java.io.*;
-import java.net.URI;
 import java.util.*;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
-
 /**
  * Created by gengl on 16-11-18.
+ * This is the single version
  */
 public class SingleVersion {
-    public static String readLocalFile(File file) {
+    private static String readLocalFile(File file) {
         StringBuilder sb = new StringBuilder();
         BufferedReader reader = null;
         try {
@@ -39,9 +31,19 @@ public class SingleVersion {
         return sb.toString();
     }
 
+    private static void writeToLocal(String path, String content) throws IOException {
+        File file = new File(path);
+        if (file.exists())
+            file.delete();
+        file.createNewFile();
+        BufferedWriter writer = new BufferedWriter(new FileWriter(file));
+//        writer.write(content);
+        writer.append(content);
+        writer.close();
+    }
 
     public static void clearFolder() {
-        File folder = new File("D:\\Contest\\exset\\graph");
+        File folder = new File("D:\\Liang_Projects\\exset\\graph");
         for (String fileName : folder.list()) {
             File file = new File(folder + "/" + fileName);
             file.delete();
@@ -49,8 +51,8 @@ public class SingleVersion {
     }
 
     public static void main(String[] args) throws IOException {
-        clearFolder();
-        File folder = new File("D:\\Contest\\exset\\ex3");
+//        clearFolder();
+        File folder = new File("D:\\Liang_Projects\\exset\\ex3");
         String[] fileNames = folder.list();
         final Map<Character, String> terminatorFilename = new HashMap<Character, String>();
         SlavesWorks masterWorks = new SlavesWorks();
@@ -66,9 +68,9 @@ public class SingleVersion {
 
 
         Set<Character> alphabet = masterWorks.getAlphabet(S);
-        Set<Set<String>> setOfVirtualTrees = masterWorks.verticalPartitioning(S, alphabet,  10);
-        System.out.println("Vertical Partition Finished");
-        System.out.println(setOfVirtualTrees.size());
+        Set<Set<String>> setOfVirtualTrees = masterWorks.verticalPartitioning(S, alphabet,  Integer.MAX_VALUE);
+//        System.out.println("Vertical Partition Finished");
+//        System.out.println(setOfVirtualTrees.size());
         for (Set<String> virtualTrees : setOfVirtualTrees) {
             SlavesWorks slavesWorks = new SlavesWorks(S, virtualTrees, terminatorFilename,"",1000);
             System.out.print(slavesWorks.workEx());
