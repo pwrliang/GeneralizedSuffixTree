@@ -17,7 +17,6 @@ import org.apache.spark.api.java.function.VoidFunction;
  * This is the enter point of program
  */
 public class Main {
-
     private static String readFile(String url) throws IOException {
         Path path = new Path(url);
         URI uri = path.toUri();
@@ -33,7 +32,6 @@ public class Main {
         }
         return sb.toString();
     }
-
 
     private static List<String> listFiles(String url) throws IOException {
         Path path = new Path(url);
@@ -111,5 +109,4 @@ public class Main {
         masterWork.writeToFile(outputURL, "SUCCESS", String.format("START:%s\nEND:%s\n", startDate, new Date().toString()));
         System.out.println("==============end===============");
     }
-
 }
