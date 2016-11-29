@@ -63,3 +63,4 @@ target/generated-sources/
 target/maven-archiver/
 target/maven-status/
 target/suffixtree-1.0-SNAPSHOT.jar
+!/.gitignore
