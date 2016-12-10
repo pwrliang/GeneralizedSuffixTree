@@ -17,7 +17,6 @@ import org.apache.spark.api.java.function.VoidFunction;
  * This is the enter point of program
  */
 public class Main {
-
     private static String readFile(String url) throws IOException {
         Path path = new Path(url);
         URI uri = path.toUri();
@@ -33,7 +32,6 @@ public class Main {
         }
         return sb.toString();
     }
-
 
     private static List<String> listFiles(String url) throws IOException {
         Path path = new Path(url);
@@ -87,8 +85,13 @@ public class Main {
         //50000 1000   1.7min
         //10000 1000   1.4min
         //60000 1000   1.4min
+        //30000 1000   1.2min
         //50000 1000 data set
-        //50000 1000  35min
+        //50000 1000  37min
+        //60000 1000  43min
+        //40000 1000  80+min
+        //50000 2000  21min
+
         System.out.println("==================Start Vertical Partition=======================");
         Set<Set<String>> setOfVirtualTrees = masterWork.verticalPartitioning(S, alphabet, Fm);
         System.out.println("==================Vertical Partition Finished setOfVirtualTrees:" + setOfVirtualTrees.size() + "================");
@@ -110,5 +113,4 @@ public class Main {
         masterWork.writeToFile(outputURL, "SUCCESS", String.format("START:%s\nEND:%s\n", startDate, new Date().toString()));
         System.out.println("==============end===============");
     }
-
 }
