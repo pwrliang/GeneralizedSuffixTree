@@ -2,6 +2,7 @@ package GST;
 
 import java.io.*;
 import java.util.*;
+
 /**
  * Created by gengl on 16-11-18.
  * This is the single version
@@ -52,6 +53,7 @@ public class SingleVersion {
 
     public static void main(String[] args) throws IOException {
 //        clearFolder();
+//        System.setOut(new PrintStream("D:\\Liang_Projects\\exset\\新建文本文档.txt"));
         File folder = new File("D:\\Liang_Projects\\exset\\ex3");
         String[] fileNames = folder.list();
         final Map<Character, String> terminatorFilename = new HashMap<Character, String>();
@@ -63,17 +65,20 @@ public class SingleVersion {
             Character terminator = masterWorks.nextTerminator();
             S.add(content + terminator);
             terminatorFilename.put(terminator, filename);
-//            System.out.println(filename);
         }
 
 
-        Set<Character> alphabet = masterWorks.getAlphabet(S);
-        Set<Set<String>> setOfVirtualTrees = masterWorks.verticalPartitioning(S, alphabet,  Integer.MAX_VALUE);
-//        System.out.println("Vertical Partition Finished");
-//        System.out.println(setOfVirtualTrees.size());
-        for (Set<String> virtualTrees : setOfVirtualTrees) {
-            SlavesWorks slavesWorks = new SlavesWorks(S, virtualTrees, terminatorFilename,"",1000);
-            System.out.print(slavesWorks.workEx());
+        for (int i = 1; i < Integer.MAX_VALUE; i++) {
+            int range = 0;
+            while (range == 0)
+                range = new Random().nextInt(1000);
+            System.out.println("Fm:" + i + " range:" + range);
+            Set<Character> alphabet = masterWorks.getAlphabet(S);
+            Set<Set<String>> setOfVirtualTrees = masterWorks.verticalPartitioning(S, alphabet, i);
+            for (Set<String> virtualTrees : setOfVirtualTrees) {
+                SlavesWorks slavesWorks = new SlavesWorks(S, virtualTrees, terminatorFilename, "", range);
+                System.out.print(slavesWorks.workEx());
+            }
         }
     }
 }

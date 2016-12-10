@@ -73,8 +73,7 @@ public class SlavesWorks implements Serializable {
 
     /**
      * 开始建树并写入HDFS中
-     *
-     * */
+     */
     void work() {
         StringBuilder result = new StringBuilder();
         for (String Pi : p) {
@@ -92,11 +91,12 @@ public class SlavesWorks implements Serializable {
     }
 
     /**
-    * 单机版，用于测试
-    * */
+     * 单机版，用于测试
+     */
     String workEx() {
         StringBuilder stringBuilder = new StringBuilder();
         for (String Pi : p) {
+//            System.out.println("pi:"+Pi);
             Object[] L_B = subTreePrepare(S, Pi);
             TreeNode root = buildSubTree((List<int[]>) L_B[0], (List<TypeB>) L_B[1]);
             splitSubTree(S, Pi, root);
@@ -107,10 +107,11 @@ public class SlavesWorks implements Serializable {
 
     /**
      * 将内容写入HDFS中
+     *
      * @param outputURL HDFS的URL
-     * @param filename 文件名
-     * @param content 内容
-     * */
+     * @param filename  文件名
+     * @param content   内容
+     */
     void writeToFile(String outputURL, String filename, String content) throws IOException {
         Path path = new Path(outputURL + "/" + filename);
         URI uri = path.toUri();
@@ -128,14 +129,14 @@ public class SlavesWorks implements Serializable {
      *
      * @param c 被测试的字符
      * @return 是终结符返回true否则返回false
-     * */
+     */
     private boolean isTerminator(char c) {
         return c >= 43000 && c <= 57000;
     }
 
     /**
      * 产生不重复的终结符
-     * */
+     */
     char nextTerminator() {
         return terminator++;
     }
@@ -149,7 +150,7 @@ public class SlavesWorks implements Serializable {
 
     /**
      * 扫描所有串，生成字母表
-     * */
+     */
     Set<Character> getAlphabet(List<String> S) {
         Set<Character> alphabet = new HashSet<Character>();
         for (String line : S) {
@@ -162,11 +163,12 @@ public class SlavesWorks implements Serializable {
 
     /**
      * 垂直分区
-     * @param S 字符串列表
+     *
+     * @param S        字符串列表
      * @param alphabet 字母表
-     * @param Fm 参数Fm
+     * @param Fm       参数Fm
      * @return 返回集合列表，每个元素是集合，集合内容是pi
-     * */
+     */
     Set<Set<String>> verticalPartitioning(List<String> S, Set<Character> alphabet, long Fm) {
         Set<Set<String>> virtualTree = new HashSet<Set<String>>();
         List<String> P_ = new LinkedList<String>();
@@ -319,10 +321,11 @@ public class SlavesWorks implements Serializable {
 
     /**
      * 子树准备
+     *
      * @param S 字符串列表
      * @param p 垂直分区产生的pi
-     * @return 返回一个数组Object[2],Object[0]装的是L，Object[1]装的是B
-     * */
+     * @return 返回一个数组Object[2], Object[0]装的是L，Object[1]装的是B
+     */
     private Object[] subTreePrepare(List<String> S, String p) {
         class RPL {
             private String R;
@@ -369,7 +372,7 @@ public class SlavesWorks implements Serializable {
         activeAreaList.put(0, new ArrayList<Integer>());
         for (int i = 0; i < A.size(); i++)
             activeAreaList.get(0).add(i);
-
+        int lastActiveAreaId = 0;
         while (true) {
             //line 8
             //假设B都定义了
@@ -401,12 +404,12 @@ public class SlavesWorks implements Serializable {
             //此部分伪代码不明确，我写的可能有问题
             ////////////Line 13-Line 15 START/////////////
             //遍历每个活动区
-            int lastActiveAreaId = 0;
-            //遍历活动区找到最大的aaID
-            for (Integer aaId : activeAreaList.keySet())
-                if (aaId > lastActiveAreaId) {
-                    lastActiveAreaId = aaId;
-                }
+
+//            //遍历活动区找到最大的aaID
+//            for (Integer aaId : activeAreaList.keySet())
+//                if (aaId > lastActiveAreaId) {
+//                    lastActiveAreaId = aaId;
+//                }
             Map<Integer, List<Integer>> changedActiveAreaList = new HashMap<Integer, List<Integer>>(activeAreaList);
             List<RPL> beforeOrderedRPLList = new ArrayList<RPL>(RPLList);
             for (Integer aaId : activeAreaList.keySet()) {
@@ -460,11 +463,9 @@ public class SlavesWorks implements Serializable {
                     //发现活动区
                     if (j != i + 1) {
                         lastActiveAreaId++;
-                        List<Integer> newActiveArea = activeAreaList.get(lastActiveAreaId);
-                        if (newActiveArea == null) {
-                            newActiveArea = new ArrayList<Integer>();
-                            changedActiveAreaList.put(lastActiveAreaId, newActiveArea);
-                        }
+                        List<Integer> newActiveArea = new ArrayList<Integer>();
+                        changedActiveAreaList.put(lastActiveAreaId, newActiveArea);
+
                         for (int k = i; k < j; k++) {
                             int aaIndex = rplIndexes.remove(i);
                             newActiveArea.add(aaIndex);//下表会后窜，所以都是删i
@@ -539,10 +540,11 @@ public class SlavesWorks implements Serializable {
 
     /**
      * 构建子树
+     *
      * @param L 子树准备返回的L
      * @param B 子树准备返回的B
      * @return 返回树的根节点
-     * */
+     */
     private TreeNode buildSubTree(List<int[]> L, List<TypeB> B) {
         TreeNode root = new SlavesWorks.TreeNode();
         TreeNode u_ = new SlavesWorks.TreeNode();
@@ -622,9 +624,11 @@ public class SlavesWorks implements Serializable {
         return root;
     }
 
-    /**拆法1，对被拆节点位置不变，新建节点，把被拆节点信息转移到新节点上，新节点作为被拆节点的左孩子
-     * @param S 字符串列表
-     * @param p 垂直分区产生的pi
+    /**
+     * 拆法1，对被拆节点位置不变，新建节点，把被拆节点信息转移到新节点上，新节点作为被拆节点的左孩子
+     *
+     * @param S    字符串列表
+     * @param p    垂直分区产生的pi
      * @param root 构建子树产生的根节点
      */
     private void splitSubTree(List<String> S, String p, TreeNode root) {
@@ -670,9 +674,11 @@ public class SlavesWorks implements Serializable {
         }
     }
 
-    /**拆法2，新建节点，并让新建节点作为被拆节点的父节点
-     * @param S 字符串列表
-     * @param p 垂直分区产生的pi
+    /**
+     * 拆法2，新建节点，并让新建节点作为被拆节点的父节点
+     *
+     * @param S    字符串列表
+     * @param p    垂直分区产生的pi
      * @param root 构建子树产生的根节点
      */
     private void splitSubTree_V2(List<String> S, String p, TreeNode root) {
@@ -728,10 +734,10 @@ public class SlavesWorks implements Serializable {
     /**
      * 遍历树，并打印所有叶节点
      *
-     * @param root 树的根节点
+     * @param root               树的根节点
      * @param terminatorFileName 终结符-文件名对应列表
      * @return 返回一棵树所有叶节点遍历结果
-     * */
+     */
     private String traverseTree(TreeNode root, Map<Character, String> terminatorFileName) {
         Stack<TreeNode> stack = new Stack<TreeNode>();
         TreeNode node = root;
