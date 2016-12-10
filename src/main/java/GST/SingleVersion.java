@@ -51,6 +51,27 @@ public class SingleVersion {
         }
     }
 
+    static List<String> sort(List<String> input) {
+        Collections.sort(input, new Comparator<String>() {
+            public int compare(String o1, String o2) {
+                String filename1 = o1.split(":")[0].split(" ")[1];
+                Integer index1 = Integer.parseInt(o1.split(":")[1]);
+                String filename2 = o2.split(":")[0].split(" ")[1];
+                Integer index2 = Integer.parseInt(o2.split(":")[1]);
+                if (filename1.compareTo(filename2) == 0)
+                    if (index1 == index2)
+                        return 0;
+                    else if (index1 > index2)
+                        return 1;
+                    else
+                        return -1;
+                return filename1.compareTo(filename2);
+            }
+        });
+        return input;
+    }
+
+    //split1 695ms split2 626ms
     public static void main(String[] args) throws IOException {
 //        clearFolder();
 //        System.setOut(new PrintStream("D:\\Liang_Projects\\exset\\新建文本文档.txt"));
@@ -67,18 +88,30 @@ public class SingleVersion {
             terminatorFilename.put(terminator, filename);
         }
 
-
-        for (int i = 1; i < Integer.MAX_VALUE; i++) {
+        Set<Character> alphabet = masterWorks.getAlphabet(S);
+        for (int i = 1; i < 10000; i++) {
             int range = 0;
-            while (range == 0)
-                range = new Random().nextInt(1000);
-            System.out.println("Fm:" + i + " range:" + range);
-            Set<Character> alphabet = masterWorks.getAlphabet(S);
-            Set<Set<String>> setOfVirtualTrees = masterWorks.verticalPartitioning(S, alphabet, i);
+            int Fm = 0;
+            while (range == 0) {
+                range = new Random().nextInt(Integer.MAX_VALUE);
+            }
+            while (Fm == 0) {
+                Fm = new Random().nextInt(Integer.MAX_VALUE);
+            }
+            Set<Set<String>> setOfVirtualTrees = masterWorks.verticalPartitioning(S, alphabet, Fm);
+            System.setOut(new PrintStream("D:\\Liang_Projects\\exset\\output\\" + Fm + " " + range + ".txt"));
+            List<String> result = new ArrayList<String>();
             for (Set<String> virtualTrees : setOfVirtualTrees) {
                 SlavesWorks slavesWorks = new SlavesWorks(S, virtualTrees, terminatorFilename, "", range);
-                System.out.print(slavesWorks.workEx());
+                String[] subTree = slavesWorks.workEx().split("\n");
+                for (String tree : subTree)
+                    result.add(tree);
             }
+            if (i % 1000 == 0)
+                System.out.println(i);
+            sort(result);
+            for (String leaf : result)
+                System.out.println(leaf);
         }
     }
 }

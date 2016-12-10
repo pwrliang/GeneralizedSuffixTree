@@ -78,7 +78,7 @@ public class SlavesWorks implements Serializable {
         StringBuilder result = new StringBuilder();
         for (String Pi : p) {
             Object[] L_B = subTreePrepare(S, Pi);
-            TreeNode root = buildSubTree((List<int[]>) L_B[0], (List<TypeB>) L_B[1]);
+            TreeNode root = buildSubTree((List<int[]>) L_B[0], (List<Integer>) L_B[1]);
             splitSubTree(S, Pi, root);
             String s = traverseTree(root, terminatorFilename);
             result.append(s);
@@ -96,9 +96,8 @@ public class SlavesWorks implements Serializable {
     String workEx() {
         StringBuilder stringBuilder = new StringBuilder();
         for (String Pi : p) {
-//            System.out.println("pi:"+Pi);
             Object[] L_B = subTreePrepare(S, Pi);
-            TreeNode root = buildSubTree((List<int[]>) L_B[0], (List<TypeB>) L_B[1]);
+            TreeNode root = buildSubTree((List<int[]>) L_B[0], (List<Integer>) L_B[1]);
             splitSubTree(S, Pi, root);
             stringBuilder.append(traverseTree(root, terminatorFilename));
         }
@@ -337,7 +336,8 @@ public class SlavesWorks implements Serializable {
                 this.L = L;
             }
         }
-        List<TypeB> B = new ArrayList<TypeB>();
+//        List<TypeB> B = new ArrayList<TypeB>();
+        List<Integer> _B = new ArrayList<Integer>();
         List<Boolean> B_defined = new ArrayList<Boolean>();
         List<Integer> I = new ArrayList<Integer>();
         Map<Integer, Boolean> I_done = new HashMap<Integer, Boolean>();
@@ -360,7 +360,8 @@ public class SlavesWorks implements Serializable {
         }
 
         for (int i = 0; i < RPLList.size(); i++) {
-            B.add(new TypeB());
+//            B.add(new TypeB());
+            _B.add(0);
             B_defined.add(false);
             I.add(i);
             I_done.put(i, false);
@@ -513,7 +514,8 @@ public class SlavesWorks implements Serializable {
                     }
                     if (cs < range) {//line 18
                         //line 19
-                        B.set(i, new TypeB(R1.charAt(cs), R2.charAt(cs), start + cs));
+                        _B.set(i, start + cs);
+//                        B.set(i, new TypeB(R1.charAt(cs), R2.charAt(cs), start + cs));
                         B_defined.set(i, true);
                         if (B_defined.get(i - 1) || i == 1) {
                             I_done.put(I.get(RPLList.get(i - 1).P), true);
@@ -534,7 +536,7 @@ public class SlavesWorks implements Serializable {
         for (RPL rpl : RPLList)
             newL.add(rpl.L);
         LB[0] = newL;
-        LB[1] = B;
+        LB[1] = _B;
         return LB;
     }
 
@@ -545,7 +547,7 @@ public class SlavesWorks implements Serializable {
      * @param B 子树准备返回的B
      * @return 返回树的根节点
      */
-    private TreeNode buildSubTree(List<int[]> L, List<TypeB> B) {
+    private TreeNode buildSubTree(List<int[]> L, List<Integer> B) {
         TreeNode root = new SlavesWorks.TreeNode();
         TreeNode u_ = new SlavesWorks.TreeNode();
         root.parent = null;
@@ -562,8 +564,9 @@ public class SlavesWorks implements Serializable {
         v1Length.put(root, 0);
         int depth = e_.length();
         for (int i = 1; i < B.size(); i++) {
-            TypeB typeB = B.get(i);
-            int offset = typeB.common;
+//            TypeB typeB = B.get(i);
+//            int offset = typeB.common;
+            int offset = B.get(i);
             TreeNode v1, v2, u;
             do {
                 TreeNode se = stack.pop();
@@ -625,63 +628,13 @@ public class SlavesWorks implements Serializable {
     }
 
     /**
-     * 拆法1，对被拆节点位置不变，新建节点，把被拆节点信息转移到新节点上，新节点作为被拆节点的左孩子
+     * 新建节点，并让新建节点作为被拆节点的父节点
      *
      * @param S    字符串列表
      * @param p    垂直分区产生的pi
      * @param root 构建子树产生的根节点
      */
     private void splitSubTree(List<String> S, String p, TreeNode root) {
-        TreeNode currNode = root.leftChild;
-        int lastSplit = 0;
-        StringBuilder path = new StringBuilder();
-        for (int i = 0; i < p.length(); i++) {
-            if (p.charAt(i) == SPLITTER || p.charAt(i) == SPLITTER_INSERTION) {
-                String data = currNode.data;
-                //建立一个新节点，将被拆分节点的信息转移给新节点
-                TreeNode newNode = new TreeNode(data.substring(i - lastSplit), currNode.index);
-                currNode.index = null;
-                path.append(data.substring(0, i - lastSplit));
-                currNode.data = data.substring(0, i - lastSplit);
-                if (currNode.leftChild != null) {//将原currNode的孩子节点作为新节点的孩子
-                    newNode.leftChild = currNode.leftChild;
-                    newNode.leftChild.parent = newNode;
-                }
-                newNode.parent = currNode;
-                currNode.leftChild = newNode;
-
-                currNode = newNode;
-                lastSplit = i + 1;
-                if (p.charAt(i) == SPLITTER_INSERTION) {
-                    TreeNode sibling = currNode;
-                    while (sibling.rightSibling != null) {
-                        sibling = sibling.rightSibling;
-                    }
-                    for (int j = 0; j < S.size(); j++) {
-                        String line = S.get(j);
-                        //对于以path结尾的串，则插入叶节点
-                        String replaceTerminator = line.substring(0, line.length() - 1);
-                        if (replaceTerminator.endsWith(path.toString())) {
-                            int start = line.lastIndexOf(path.toString());
-                            TreeNode tmp = new TreeNode(line.charAt(line.length() - 1) + "", new int[]{j, start});
-                            sibling.rightSibling = tmp;
-                            tmp.parent = sibling.parent;
-                            sibling = tmp;
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    /**
-     * 拆法2，新建节点，并让新建节点作为被拆节点的父节点
-     *
-     * @param S    字符串列表
-     * @param p    垂直分区产生的pi
-     * @param root 构建子树产生的根节点
-     */
-    private void splitSubTree_V2(List<String> S, String p, TreeNode root) {
         TreeNode currNode = root.leftChild;
         int lastSplit = 0;
         StringBuilder path = new StringBuilder();
@@ -751,6 +704,8 @@ public class SlavesWorks implements Serializable {
             }
             node = stack.pop();
             //找到叶子节点，打印栈
+            if (node.leftChild == null && node.index == null || node.leftChild != null && node.index != null)
+                System.exit(1);
             if (node.leftChild == null) {
                 sb.append(String.format("%d %s:%d\n", stack.size(), terminatorFileName.get(node.data.charAt(node.data.length() - 1)), node.index[1]));
             }
@@ -758,39 +713,4 @@ public class SlavesWorks implements Serializable {
         }
         return sb.toString();
     }
-
-    //dot -Tpng -O filename
-    private void traverseTreeWithGraph(PrintWriter out, TreeNode root, Map<Character, String> terminatorFileName) {
-        if (root == null) {
-        } else {
-            if (root.leftChild == null) {//叶节点
-                out.println("\tnode" + root.hashCode() + " [label=\"" + root.index[0] + ":" + root.index[1] + "\",shape=circle]");
-                out.println("\tnode" + root.parent.hashCode() + " -> node" + root.hashCode() + " [label=\"" + root.data.replace(' ', '*') + "\",weight=3]");
-            } else if (root.parent != null) {//非根节点
-                out.println("\tnode" + root.hashCode() + " [label=\"\",style=filled,fillcolor=lightgrey,shape=circle,width=.07,height=.07]");
-                out.println("\tnode" + root.parent.hashCode() + " -> node" + root.hashCode() + " [label=\"" + root.data.replace(' ', '*') + "\",weight=3]");
-            } else {//根节点
-                out.println("\tnode" + root.hashCode() + " [label=\"\",style=filled,fillcolor=lightgrey,shape=circle,width=.1,height=.1];");
-            }
-            traverseTreeWithGraph(out, root.leftChild, terminatorFileName);
-            traverseTreeWithGraph(out, root.rightSibling, terminatorFileName);
-        }
-    }
-
-    void printTree(String treeName, TreeNode root, Map<Character, String> terminatorFileName) {
-        PrintWriter out = null;
-        try {
-            out = new PrintWriter(new FileWriter("D:\\Liang_Projects\\exset\\graph\\" + treeName + ".dot"));
-            out.println("digraph {");
-            out.println("\tedge [arrowsize=0.4,fontsize=10]");
-            traverseTreeWithGraph(out, root, terminatorFileName);
-            out.println("}");
-        } catch (IOException e) {
-            e.printStackTrace();
-        } finally {
-            if (out != null)
-                out.close();
-        }
-    }
-
 }
