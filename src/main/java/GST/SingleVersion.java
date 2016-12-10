@@ -107,8 +107,6 @@ public class SingleVersion {
                 for (String tree : subTree)
                     result.add(tree);
             }
-            if (i % 1000 == 0)
-                System.out.println(i);
             sort(result);
             for (String leaf : result)
                 System.out.println(leaf);
