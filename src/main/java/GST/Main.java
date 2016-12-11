@@ -5,9 +5,11 @@ import org.apache.hadoop.fs.*;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
+
 import java.io.*;
 import java.net.URI;
 import java.util.*;
+
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.VoidFunction;
 
@@ -50,6 +52,21 @@ public class Main {
         return pathList;
     }
 
+    private static boolean mkdir(String url) throws IOException {
+        Path path = new Path(url);
+        URI uri = path.toUri();
+        String hdfsPath = String.format("%s://%s:%d", uri.getScheme(), uri.getHost(), uri.getPort());
+        Configuration conf = new Configuration();
+        conf.set("fs.defaultFS", hdfsPath);
+
+        FileSystem fileSystem = FileSystem.get(conf);
+        if (!fileSystem.exists(path)) {
+            fileSystem.mkdirs(path);
+            return true;
+        }
+        return false;
+    }
+
     public static void main(String[] args) throws IOException, InterruptedException {
         SparkConf sparkConf = new SparkConf().
                 setAppName("Generalized Suffix Tree");
@@ -58,6 +75,13 @@ public class Main {
         final String outputURL = args[1];
         final int Fm = Integer.parseInt(args[2]);
         final int ELASTIC_RANGE = Integer.parseInt(args[3]);
+
+
+        if (mkdir(outputURL)) {
+            System.out.println("folder doesn't exists, make dir");
+        } else {
+            System.out.println("folder existed");
+        }
 
         final Date startDate = new Date();
         //开始读取文本文件
