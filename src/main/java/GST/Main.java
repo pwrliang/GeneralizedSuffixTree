@@ -50,6 +50,21 @@ public class Main {
         return pathList;
     }
 
+    private static boolean mkdir(String url)throws IOException{
+        Path path = new Path(url);
+        URI uri = path.toUri();
+        String hdfsPath = String.format("%s://%s:%d", uri.getScheme(), uri.getHost(), uri.getPort());
+        Configuration conf = new Configuration();
+        conf.set("fs.defaultFS", hdfsPath);
+
+        FileSystem fileSystem = FileSystem.get(conf);
+        if(!fileSystem.exists(path)) {
+            fileSystem.mkdirs(path);
+            return true;
+        }
+        return false;
+    }
+
     public static void main(String[] args) throws IOException, InterruptedException {
         SparkConf sparkConf = new SparkConf().
                 setAppName("Generalized Suffix Tree");
@@ -58,8 +73,13 @@ public class Main {
         final String outputURL = args[1];
         final int Fm = Integer.parseInt(args[2]);
         final int ELASTIC_RANGE = Integer.parseInt(args[3]);
-
         final Date startDate = new Date();
+
+        //创建输出文件夹
+        if(mkdir(outputURL))
+            System.out.println("Folder doesn't exist, created");
+        else
+            System.out.println("Folder existed!");
         //开始读取文本文件
         List<String> pathList = listFiles(inputURL);
         final Map<Character, String> terminatorFilename = new HashMap<Character, String>();//终结符:文件名

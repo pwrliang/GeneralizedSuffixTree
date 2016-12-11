@@ -98,8 +98,8 @@ public class SingleVersion {
         return input;
     }
 
-    //split1 695ms split2 626ms
     public static void main(String[] args) throws IOException, InterruptedException {
+        System.exit(0);
         File folder = new File("D:\\Liang_Projects\\exset\\ex3");
         String[] fileNames = folder.list();
         final Map<Character, String> terminatorFilename = new HashMap<Character, String>();
