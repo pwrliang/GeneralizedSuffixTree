@@ -100,7 +100,7 @@ public class SingleVersion {
 
     //split1 695ms split2 626ms
     public static void main(String[] args) throws IOException, InterruptedException {
-        File folder = new File("/home/gengl/Desktop/gengl/Documents/exset/ex0");
+        File folder = new File("/home/gengl/Desktop/gengl/Documents/exset/ex2");
         String[] fileNames = folder.list();
         final Map<Character, String> terminatorFilename = new HashMap<Character, String>();
         final SlavesWorks masterWorks = new SlavesWorks();
@@ -114,19 +114,19 @@ public class SingleVersion {
         }
 
         final Set<Character> alphabet = masterWorks.getAlphabet(S);
-        final List<String> rightResult = readLocalFileLine(new File("/home/gengl/Desktop/gengl/Documents/exset/res0.txt"));
+        final List<String> rightResult = readLocalFileLine(new File("/home/gengl/Desktop/gengl/Documents/exset/res2.txt"));
         final ThreadPoolExecutor executorService = (ThreadPoolExecutor) Executors.newFixedThreadPool(50);
-        for (int i = 1; i < 10000; i++) {
+        for (int i = 1; i < 100000; i++) {
             final int finalI = i;
             executorService.execute(new Runnable() {
                 public void run() {
                     int range = 0;
                     int Fm = 0;
                     while (range == 0) {
-                        range = new Random().nextInt(100000);
+                        range = new Random().nextInt(1000);
                     }
                     while (Fm == 0) {
-                        Fm = new Random().nextInt(10000);
+                        Fm = new Random().nextInt(100);
                     }
                     Set<Set<String>> setOfVirtualTrees = masterWorks.verticalPartitioning(S, alphabet, Fm);
                     List<String> result = new ArrayList<String>();

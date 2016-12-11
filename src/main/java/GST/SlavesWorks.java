@@ -670,9 +670,6 @@ public class SlavesWorks implements Serializable {
                 node = node.leftChild;
             }
             node = stack.pop();
-            //找到叶子节点，打印栈
-            if (node.leftChild == null && node.index == null || node.leftChild != null && node.index != null)
-                System.out.print("ERRRRRRRRRRRRRRRRRRRRRRRRRRRRR");
             if (node.leftChild == null) {
                 sb.append(String.format("%d %s:%d\n", stack.size(), terminatorFileName.get(node.data.charAt(node.data.length() - 1)), node.index[1]));
             }
