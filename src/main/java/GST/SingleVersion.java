@@ -2,6 +2,9 @@ package GST;
 
 import java.io.*;
 import java.util.*;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Created by gengl on 16-11-18.
@@ -30,6 +33,30 @@ public class SingleVersion {
                 }
         }
         return sb.toString();
+    }
+
+    private static List<String> readLocalFileLine(File file) {
+        List<String> lines = new ArrayList<String>();
+        BufferedReader reader = null;
+        try {
+            reader = new BufferedReader(new FileReader(file));
+            String line;
+            while ((line = reader.readLine()) != null) {
+                lines.add(line);
+            }
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            if (reader != null)
+                try {
+                    reader.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+        }
+        return lines;
     }
 
     private static void writeToLocal(String path, String content) throws IOException {
@@ -72,13 +99,11 @@ public class SingleVersion {
     }
 
     //split1 695ms split2 626ms
-    public static void main(String[] args) throws IOException {
-//        clearFolder();
-//        System.setOut(new PrintStream("D:\\Liang_Projects\\exset\\新建文本文档.txt"));
+    public static void main(String[] args) throws IOException, InterruptedException {
         File folder = new File("D:\\Liang_Projects\\exset\\ex3");
         String[] fileNames = folder.list();
         final Map<Character, String> terminatorFilename = new HashMap<Character, String>();
-        SlavesWorks masterWorks = new SlavesWorks();
+        final SlavesWorks masterWorks = new SlavesWorks();
         final List<String> S = new ArrayList<String>();
         for (String filename : fileNames) {
             File txtFile = new File(folder.getPath() + "/" + filename);
@@ -88,28 +113,44 @@ public class SingleVersion {
             terminatorFilename.put(terminator, filename);
         }
 
-        Set<Character> alphabet = masterWorks.getAlphabet(S);
-        for (int i = 1; i < 10000; i++) {
-            int range = 0;
-            int Fm = 0;
-            while (range == 0) {
-                range = new Random().nextInt(Integer.MAX_VALUE);
-            }
-            while (Fm == 0) {
-                Fm = new Random().nextInt(Integer.MAX_VALUE);
-            }
-            Set<Set<String>> setOfVirtualTrees = masterWorks.verticalPartitioning(S, alphabet, Fm);
-            System.setOut(new PrintStream("D:\\Liang_Projects\\exset\\output\\" + Fm + " " + range + ".txt"));
-            List<String> result = new ArrayList<String>();
-            for (Set<String> virtualTrees : setOfVirtualTrees) {
-                SlavesWorks slavesWorks = new SlavesWorks(S, virtualTrees, terminatorFilename, "", range);
-                String[] subTree = slavesWorks.workEx().split("\n");
-                for (String tree : subTree)
-                    result.add(tree);
-            }
-            sort(result);
-            for (String leaf : result)
-                System.out.println(leaf);
+        final Set<Character> alphabet = masterWorks.getAlphabet(S);
+        final List<String> rightResult = readLocalFileLine(new File("D:\\Liang_Projects\\exset\\res3.txt"));
+        final ThreadPoolExecutor executorService = (ThreadPoolExecutor) Executors.newFixedThreadPool(10);
+        for (int i = 1; i < 100; i++) {
+            final int finalI = i;
+            executorService.execute(new Runnable() {
+                public void run() {
+                    int range = 0;
+                    int Fm = 0;
+                    while (range == 0) {
+                        range = new Random().nextInt(100000);
+                    }
+                    while (Fm == 0) {
+                        Fm = new Random().nextInt(10000);
+                    }
+                    Set<Set<String>> setOfVirtualTrees = masterWorks.verticalPartitioning(S, alphabet, Fm);
+                    List<String> result = new ArrayList<String>();
+                    for (Set<String> virtualTrees : setOfVirtualTrees) {
+                        SlavesWorks slavesWorks = new SlavesWorks(S, virtualTrees, terminatorFilename, "", range);
+                        String[] subTree = slavesWorks.workEx().split("\n");
+                        for (String tree : subTree)
+                            result.add(tree);
+                    }
+                    sort(result);
+
+                    if (rightResult.size() != result.size())
+                        System.out.println(String.format("Fm:%d range:%d", Fm, range));
+                    for (int n = 0; n < rightResult.size(); n++)
+                        if (!rightResult.get(n).equals(result.get(n))) {
+                            System.out.println(String.format("Fm:%d range:%d", Fm, range));
+                            System.exit(0);
+                        }
+                    if (finalI % 1000 == 0)
+                        System.out.println(finalI);
+                }
+            });
         }
+        executorService.shutdown();
+        executorService.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
     }
 }
