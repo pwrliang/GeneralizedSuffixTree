@@ -100,7 +100,7 @@ public class SingleVersion {
 
     //split1 695ms split2 626ms
     public static void main(String[] args) throws IOException, InterruptedException {
-        File folder = new File("D:\\Liang_Projects\\exset\\ex3");
+        File folder = new File("/home/gengl/Desktop/gengl/Documents/exset/ex0");
         String[] fileNames = folder.list();
         final Map<Character, String> terminatorFilename = new HashMap<Character, String>();
         final SlavesWorks masterWorks = new SlavesWorks();
@@ -114,9 +114,9 @@ public class SingleVersion {
         }
 
         final Set<Character> alphabet = masterWorks.getAlphabet(S);
-        final List<String> rightResult = readLocalFileLine(new File("D:\\Liang_Projects\\exset\\res3.txt"));
-        final ThreadPoolExecutor executorService = (ThreadPoolExecutor) Executors.newFixedThreadPool(10);
-        for (int i = 1; i < 100; i++) {
+        final List<String> rightResult = readLocalFileLine(new File("/home/gengl/Desktop/gengl/Documents/exset/res0.txt"));
+        final ThreadPoolExecutor executorService = (ThreadPoolExecutor) Executors.newFixedThreadPool(50);
+        for (int i = 1; i < 10000; i++) {
             final int finalI = i;
             executorService.execute(new Runnable() {
                 public void run() {
@@ -143,6 +143,7 @@ public class SingleVersion {
                     for (int n = 0; n < rightResult.size(); n++)
                         if (!rightResult.get(n).equals(result.get(n))) {
                             System.out.println(String.format("Fm:%d range:%d", Fm, range));
+                            System.out.println(rightResult.get(n)+" "+result.get(n));
                             System.exit(0);
                         }
                     if (finalI % 1000 == 0)
