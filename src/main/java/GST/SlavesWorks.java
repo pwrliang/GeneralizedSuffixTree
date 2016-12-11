@@ -19,20 +19,6 @@ import java.util.*;
  * This is the implementation of Era
  */
 public class SlavesWorks implements Serializable {
-    private static class TypeB {
-        char c1, c2;
-        int common;
-
-        TypeB() {
-        }
-
-        TypeB(char c1, char c2, int common) {
-            this.c1 = c1;
-            this.c2 = c2;
-            this.common = common;
-        }
-    }
-
     private static class TreeNode {
         String data;
         int[] index;
@@ -336,8 +322,7 @@ public class SlavesWorks implements Serializable {
                 this.L = L;
             }
         }
-//        List<TypeB> B = new ArrayList<TypeB>();
-        List<Integer> _B = new ArrayList<Integer>();
+        List<Integer> B = new ArrayList<Integer>();
         List<Boolean> B_defined = new ArrayList<Boolean>();
         List<Integer> I = new ArrayList<Integer>();
         Map<Integer, Boolean> I_done = new HashMap<Integer, Boolean>();
@@ -360,8 +345,7 @@ public class SlavesWorks implements Serializable {
         }
 
         for (int i = 0; i < RPLList.size(); i++) {
-//            B.add(new TypeB());
-            _B.add(0);
+            B.add(0);
             B_defined.add(false);
             I.add(i);
             I_done.put(i, false);
@@ -402,15 +386,8 @@ public class SlavesWorks implements Serializable {
                     RPLList.get(I.get(i)).R = S.get(L[0]).substring(begin, end);
                 }
             }
-            //此部分伪代码不明确，我写的可能有问题
             ////////////Line 13-Line 15 START/////////////
             //遍历每个活动区
-
-//            //遍历活动区找到最大的aaID
-//            for (Integer aaId : activeAreaList.keySet())
-//                if (aaId > lastActiveAreaId) {
-//                    lastActiveAreaId = aaId;
-//                }
             Map<Integer, List<Integer>> changedActiveAreaList = new HashMap<Integer, List<Integer>>(activeAreaList);
             List<RPL> beforeOrderedRPLList = new ArrayList<RPL>(RPLList);
             for (Integer aaId : activeAreaList.keySet()) {
@@ -514,7 +491,7 @@ public class SlavesWorks implements Serializable {
                     }
                     if (cs < range) {//line 18
                         //line 19
-                        _B.set(i, start + cs);
+                        B.set(i, start + cs);
 //                        B.set(i, new TypeB(R1.charAt(cs), R2.charAt(cs), start + cs));
                         B_defined.set(i, true);
                         if (B_defined.get(i - 1) || i == 1) {
@@ -536,7 +513,7 @@ public class SlavesWorks implements Serializable {
         for (RPL rpl : RPLList)
             newL.add(rpl.L);
         LB[0] = newL;
-        LB[1] = _B;
+        LB[1] = B;
         return LB;
     }
 
@@ -564,9 +541,7 @@ public class SlavesWorks implements Serializable {
         v1Length.put(root, 0);
         int depth = e_.length();
         for (int i = 1; i < B.size(); i++) {
-//            TypeB typeB = B.get(i);
-//            int offset = typeB.common;
-            int offset = B.get(i);
+            int offset = B.get(i);//公共前缀长度common
             TreeNode v1, v2, u;
             do {
                 TreeNode se = stack.pop();
@@ -650,14 +625,6 @@ public class SlavesWorks implements Serializable {
                 //将currNode的兄弟转移给上层
                 if (currNode.rightSibling != null) {
                     newNode.rightSibling = currNode.rightSibling;
-//                    //调整转移后节点的父节点 不比要？？
-                    //应该不要，curr的rightSib原来为curr的parent，现在在curr之上插入newNode，并把
-                    //curr的rightSib给了newNode，则newNode.rightSib的parent不需要变
-//                    TreeNode sibling = newNode.rightSibling;
-//                    while (sibling != null) {
-//                        sibling.parent = newNode.parent;
-//                        sibling = sibling.rightSibling;
-//                    }
                     currNode.rightSibling = null;
                 }
                 path.append(newNode.data);
