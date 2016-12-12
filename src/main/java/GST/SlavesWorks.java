@@ -1,14 +1,8 @@
 package GST;
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.spark.SparkConf;
-import org.apache.spark.api.java.JavaRDD;
-import org.apache.spark.api.java.JavaSparkContext;
-import scala.util.parsing.combinator.testing.Str;
-
 
 import java.io.*;
 import java.net.URI;
@@ -60,20 +54,21 @@ public class SlavesWorks implements Serializable {
     /**
      * 开始建树并写入HDFS中
      */
-    void work() {
-        StringBuilder result = new StringBuilder();
+    void work() throws IOException {
+        Path path = new Path(outputURL + "/" + "part-" + this.hashCode());
+        URI uri = path.toUri();
+        String hdfsPath = String.format("%s://%s:%d", uri.getScheme(), uri.getHost(), uri.getPort());
+        Configuration conf = new Configuration();
+        conf.set("fs.defaultFS", hdfsPath);//hdfs://master:9000
+        FileSystem fileSystem = FileSystem.get(conf);
+        BufferedWriter bufferedWriter = new BufferedWriter(new OutputStreamWriter(fileSystem.create(path)));
         for (String Pi : p) {
             Object[] L_B = subTreePrepare(S, Pi);
             TreeNode root = buildSubTree((List<int[]>) L_B[0], (List<Integer>) L_B[1]);
             splitSubTree(S, Pi, root);
-            String s = traverseTree(root, terminatorFilename);
-            result.append(s);
+            bufferedWriter.write(traverseTree(root,terminatorFilename));
         }
-        try {
-            writeToFile(outputURL, "part-" + this.hashCode(), result.toString());
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        bufferedWriter.close();
     }
 
     /**
@@ -85,28 +80,10 @@ public class SlavesWorks implements Serializable {
             Object[] L_B = subTreePrepare(S, Pi);
             TreeNode root = buildSubTree((List<int[]>) L_B[0], (List<Integer>) L_B[1]);
             splitSubTree(S, Pi, root);
-            stringBuilder.append(traverseTree(root, terminatorFilename));
+            String s = traverseTree(root, terminatorFilename);
+            stringBuilder.append(s);
         }
         return stringBuilder.toString();
-    }
-
-    /**
-     * 将内容写入HDFS中
-     *
-     * @param outputURL HDFS的URL
-     * @param filename  文件名
-     * @param content   内容
-     */
-    void writeToFile(String outputURL, String filename, String content) throws IOException {
-        Path path = new Path(outputURL + "/" + filename);
-        URI uri = path.toUri();
-        String hdfsPath = String.format("%s://%s:%d", uri.getScheme(), uri.getHost(), uri.getPort());
-        Configuration conf = new Configuration();
-        conf.set("fs.defaultFS", hdfsPath);//hdfs://master:9000
-        FileSystem fileSystem = FileSystem.get(conf);
-        BufferedWriter bufferedWriter = new BufferedWriter(new OutputStreamWriter(fileSystem.create(path)));
-        bufferedWriter.write(content);
-        bufferedWriter.close();
     }
 
     /**
@@ -284,7 +261,6 @@ public class SlavesWorks implements Serializable {
         do {
             Set<String> G = new HashSet<String>();
             //add P.head to G and remove the item from P
-            //源代码把p头移除放到G中，这里把p尾部移除放到G中
             G.add(P.remove(0));
             for (int i = 0; i < P.size(); i++) {
                 String sCurr = P.get(i);
@@ -650,6 +626,7 @@ public class SlavesWorks implements Serializable {
             }
         }
     }
+
 
     /**
      * 遍历树，并打印所有叶节点
