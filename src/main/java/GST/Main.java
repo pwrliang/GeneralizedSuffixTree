@@ -34,6 +34,7 @@ import org.apache.spark.api.java.function.VoidFunction;
 //50000 2000  21min
 //50000 3000  17min
 //50000 4000  14min
+
 /**
  * Created by Liang on 16-11-9.
  * This is the enter point of program
@@ -52,6 +53,7 @@ public class Main {
         while ((line = bufferedReader.readLine()) != null) {
             sb.append(line);
         }
+        bufferedReader.close();
         return sb.toString();
     }
 
@@ -122,7 +124,6 @@ public class Main {
             System.out.println("folder existed");
         }
 
-        final Date startDate = new Date();
         //开始读取文本文件
         List<String> pathList = listFiles(inputURL);
         final Map<Character, String> terminatorFilename = new HashMap<Character, String>();//终结符:文件名

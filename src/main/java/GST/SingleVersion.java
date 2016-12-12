@@ -86,7 +86,7 @@ public class SingleVersion {
                 String filename2 = o2.split(":")[0].split(" ")[1];
                 Integer index2 = Integer.parseInt(o2.split(":")[1]);
                 if (filename1.compareTo(filename2) == 0)
-                    if (index1 == index2)
+                    if (index1.equals(index2))
                         return 0;
                     else if (index1 > index2)
                         return 1;
@@ -100,7 +100,7 @@ public class SingleVersion {
 
     //split1 695ms split2 626ms
     public static void main(String[] args) throws IOException, InterruptedException {
-        File folder = new File("/home/gengl/Desktop/gengl/Documents/exset/ex2");
+        File folder = new File("/home/gengl/Desktop/gengl/Documents/exset/ex3");
         String[] fileNames = folder.list();
         final Map<Character, String> terminatorFilename = new HashMap<Character, String>();
         final SlavesWorks masterWorks = new SlavesWorks();
@@ -114,7 +114,7 @@ public class SingleVersion {
         }
 
         final Set<Character> alphabet = masterWorks.getAlphabet(S);
-        final List<String> rightResult = readLocalFileLine(new File("/home/gengl/Desktop/gengl/Documents/exset/res2.txt"));
+        final List<String> rightResult = readLocalFileLine(new File("/home/gengl/Desktop/gengl/Documents/exset/res3.txt"));
         final ThreadPoolExecutor executorService = (ThreadPoolExecutor) Executors.newFixedThreadPool(50);
         for (int i = 1; i < 100000; i++) {
             final int finalI = i;
@@ -143,7 +143,7 @@ public class SingleVersion {
                     for (int n = 0; n < rightResult.size(); n++)
                         if (!rightResult.get(n).equals(result.get(n))) {
                             System.out.println(String.format("Fm:%d range:%d", Fm, range));
-                            System.out.println(rightResult.get(n)+" "+result.get(n));
+                            System.out.println(rightResult.get(n) + " " + result.get(n));
                             System.exit(0);
                         }
                     if (finalI % 1000 == 0)

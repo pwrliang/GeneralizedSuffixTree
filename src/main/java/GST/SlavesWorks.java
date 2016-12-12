@@ -66,7 +66,7 @@ public class SlavesWorks implements Serializable {
             Object[] L_B = subTreePrepare(S, Pi);
             TreeNode root = buildSubTree((List<int[]>) L_B[0], (List<Integer>) L_B[1]);
             splitSubTree(S, Pi, root);
-            bufferedWriter.write(traverseTree(root,terminatorFilename));
+            bufferedWriter.write(traverseTree(root, terminatorFilename));
         }
         bufferedWriter.close();
     }
@@ -501,8 +501,8 @@ public class SlavesWorks implements Serializable {
      * @return 返回树的根节点
      */
     private TreeNode buildSubTree(List<int[]> L, List<Integer> B) {
-        TreeNode root = new SlavesWorks.TreeNode();
-        TreeNode u_ = new SlavesWorks.TreeNode();
+        TreeNode root = new TreeNode();
+        TreeNode u_ = new TreeNode();
         root.parent = null;
         root.leftChild = u_;
         u_.parent = root;
@@ -578,6 +578,7 @@ public class SlavesWorks implements Serializable {
         return root;
     }
 
+
     /**
      * 新建节点，并让新建节点作为被拆节点的父节点
      *
@@ -626,7 +627,6 @@ public class SlavesWorks implements Serializable {
             }
         }
     }
-
 
     /**
      * 遍历树，并打印所有叶节点
