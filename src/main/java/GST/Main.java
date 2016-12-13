@@ -89,25 +89,6 @@ public class Main {
         return false;
     }
 
-    /**
-     * 将内容写入HDFS中
-     *
-     * @param outputURL HDFS的URL
-     * @param filename  文件名
-     * @param content   内容
-     */
-    private static void writeToFile(String outputURL, String filename, String content) throws IOException {
-        Path path = new Path(outputURL + "/" + filename);
-        URI uri = path.toUri();
-        String hdfsPath = String.format("%s://%s:%d", uri.getScheme(), uri.getHost(), uri.getPort());
-        Configuration conf = new Configuration();
-        conf.set("fs.defaultFS", hdfsPath);//hdfs://master:9000
-        FileSystem fileSystem = FileSystem.get(conf);
-        BufferedWriter bufferedWriter = new BufferedWriter(new OutputStreamWriter(fileSystem.create(path)));
-        bufferedWriter.write(content);
-        bufferedWriter.close();
-    }
-
     public static void main(String[] args) throws IOException, InterruptedException {
         SparkConf sparkConf = new SparkConf().
                 setAppName("Generalized Suffix Tree");

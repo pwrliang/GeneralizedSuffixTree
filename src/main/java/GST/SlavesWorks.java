@@ -39,6 +39,25 @@ public class SlavesWorks implements Serializable {
     private String outputURL;//位于HDFS上的路径，用于结果保存
     private int ELASTIC_RANGE;//弹性范围
 
+    /**
+     * 将内容写入HDFS中
+     *
+     * @param outputURL HDFS的URL
+     * @param filename  文件名
+     * @param content   内容
+     */
+    private void writeToFile(String outputURL, String filename, String content) throws IOException {
+        Path path = new Path(outputURL + "/" + filename);
+        URI uri = path.toUri();
+        String hdfsPath = String.format("%s://%s:%d", uri.getScheme(), uri.getHost(), uri.getPort());
+        Configuration conf = new Configuration();
+        conf.set("fs.defaultFS", hdfsPath);//hdfs://master:9000
+        FileSystem fileSystem = FileSystem.get(conf);
+        BufferedWriter bufferedWriter = new BufferedWriter(new OutputStreamWriter(fileSystem.create(path)));
+        bufferedWriter.write(content);
+        bufferedWriter.close();
+    }
+
     SlavesWorks() {
 
     }
@@ -55,20 +74,14 @@ public class SlavesWorks implements Serializable {
      * 开始建树并写入HDFS中
      */
     void work() throws IOException {
-        Path path = new Path(outputURL + "/" + "part-" + this.hashCode());
-        URI uri = path.toUri();
-        String hdfsPath = String.format("%s://%s:%d", uri.getScheme(), uri.getHost(), uri.getPort());
-        Configuration conf = new Configuration();
-        conf.set("fs.defaultFS", hdfsPath);//hdfs://master:9000
-        FileSystem fileSystem = FileSystem.get(conf);
-        BufferedWriter bufferedWriter = new BufferedWriter(new OutputStreamWriter(fileSystem.create(path)));
+        StringBuilder sb = new StringBuilder();
         for (String Pi : p) {
             Object[] L_B = subTreePrepare(S, Pi);
             TreeNode root = buildSubTree((List<int[]>) L_B[0], (List<Integer>) L_B[1]);
-            splitSubTree(S, Pi, root);
-            bufferedWriter.write(traverseTree(root, terminatorFilename));
+            splitSubTreeEx(S, Pi, root);
+            sb.append(traverseTree(root, terminatorFilename));
         }
-        bufferedWriter.close();
+        writeToFile(outputURL,"part-"+this.hashCode(),sb.toString());
     }
 
     /**
@@ -578,6 +591,55 @@ public class SlavesWorks implements Serializable {
         return root;
     }
 
+    /**
+     * 拆法1，对被拆节点位置不变，新建节点，把被拆节点信息转移到新节点上，新节点作为被拆节点的左孩子
+     *
+     * @param S    字符串列表
+     * @param p    垂直分区产生的pi
+     * @param root 构建子树产生的根节点
+     */
+    private void splitSubTreeEx(List<String> S, String p, TreeNode root) {
+        TreeNode currNode = root.leftChild;
+        int lastSplit = 0;
+        StringBuilder path = new StringBuilder();
+        for (int i = 0; i < p.length(); i++) {
+            if (p.charAt(i) == SPLITTER || p.charAt(i) == SPLITTER_INSERTION) {
+                String data = currNode.data;
+                //建立一个新节点，将被拆分节点的信息转移给新节点
+                TreeNode newNode = new TreeNode(data.substring(i - lastSplit), currNode.index);
+                currNode.index = null;
+                path.append(data.substring(0, i - lastSplit));
+                currNode.data = data.substring(0, i - lastSplit);
+                if (currNode.leftChild != null) {//将原currNode的孩子节点作为新节点的孩子
+                    newNode.leftChild = currNode.leftChild;
+                    newNode.leftChild.parent = newNode;
+                }
+                newNode.parent = currNode;
+                currNode.leftChild = newNode;
+
+                currNode = newNode;
+                lastSplit = i + 1;
+                if (p.charAt(i) == SPLITTER_INSERTION) {
+                    TreeNode sibling = currNode;
+                    while (sibling.rightSibling != null) {
+                        sibling = sibling.rightSibling;
+                    }
+                    for (int j = 0; j < S.size(); j++) {
+                        String line = S.get(j);
+                        //对于以path结尾的串，则插入叶节点
+                        String replaceTerminator = line.substring(0, line.length() - 1);
+                        if (replaceTerminator.endsWith(path.toString())) {
+                            int start = line.lastIndexOf(path.toString());
+                            TreeNode tmp = new TreeNode(line.charAt(line.length() - 1) + "", new int[]{j, start});
+                            sibling.rightSibling = tmp;
+                            tmp.parent = sibling.parent;
+                            sibling = tmp;
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     /**
      * 新建节点，并让新建节点作为被拆节点的父节点
