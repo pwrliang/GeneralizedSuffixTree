@@ -13,7 +13,7 @@ import java.util.*;
  * This is the implementation of Era
  */
 public class SlavesWorks implements Serializable {
-    private static class TreeNode {
+    static class TreeNode implements Serializable{
         String data;
         int[] index;
         TreeNode parent;
@@ -29,13 +29,31 @@ public class SlavesWorks implements Serializable {
         }
     }
 
+    static class L_B implements Serializable{
+        List<int[]> L;
+        List<Integer> B;
+
+        L_B(List<int[]> L, List<Integer> B) {
+            this.L = L;
+            this.B = B;
+        }
+
+        public List<int[]> getL() {
+            return L;
+        }
+
+        public List<Integer> getB() {
+            return B;
+        }
+    }
+
     private char terminator = 43000;//起始终结符
     private static final char SPLITTER_INSERTION = 57001;//拆分并插入叶节点
     private static final char SPLITTER = 57002;//只拆分，不插入叶节点
 
     private List<String> S;//字符串列表
     private Set<String> p;//pi列表
-    private Map<Character, String> terminatorFilename;//终结符-文件名映射
+//    private Map<Character, String> terminatorFilename;//终结符-文件名映射
     private String outputURL;//位于HDFS上的路径，用于结果保存
     private int ELASTIC_RANGE;//弹性范围
 
@@ -46,7 +64,7 @@ public class SlavesWorks implements Serializable {
      * @param filename  文件名
      * @param content   内容
      */
-    private void writeToFile(String outputURL, String filename, String content) throws IOException {
+    void writeToFile(String outputURL, String filename, String content) throws IOException {
         Path path = new Path(outputURL + "/" + filename);
         URI uri = path.toUri();
         String hdfsPath = String.format("%s://%s:%d", uri.getScheme(), uri.getHost(), uri.getPort());
@@ -58,46 +76,25 @@ public class SlavesWorks implements Serializable {
         bufferedWriter.close();
     }
 
-    SlavesWorks() {
-
+    SlavesWorks(List<String> S, int ELASTIC_RANGE) {
+        this.S = S;
+        this.ELASTIC_RANGE = ELASTIC_RANGE;
     }
+    SlavesWorks(List<String> S) {
+        this.S = S;
+    }
+//    SlavesWorks(Map<Character, String> terminatorFilename) {
+//        this.terminatorFilename = terminatorFilename;
+//    }
 
     SlavesWorks(List<String> S, Set<String> p, Map<Character, String> terminatorFilename, String outputURL, int ELASTIC_RANGE) {
         this.S = S;
         this.p = p;
-        this.terminatorFilename = terminatorFilename;
         this.outputURL = outputURL;
         this.ELASTIC_RANGE = ELASTIC_RANGE;
     }
 
-    /**
-     * 开始建树并写入HDFS中
-     */
-    void work() throws IOException {
-        StringBuilder sb = new StringBuilder();
-        for (String Pi : p) {
-            Object[] L_B = subTreePrepare(S, Pi);
-            TreeNode root = buildSubTree((List<int[]>) L_B[0], (List<Integer>) L_B[1]);
-            splitSubTree(S, Pi, root);
-            sb.append(traverseTree(root, terminatorFilename));
-            //test
-        }
-        writeToFile(outputURL,"part-"+this.hashCode(),sb.toString());
-    }
-
-    /**
-     * 单机版，用于测试
-     */
-    String workEx() {
-        StringBuilder stringBuilder = new StringBuilder();
-        for (String Pi : p) {
-            Object[] L_B = subTreePrepare(S, Pi);
-            TreeNode root = buildSubTree((List<int[]>) L_B[0], (List<Integer>) L_B[1]);
-            splitSubTree(S, Pi, root);
-            String s = traverseTree(root, terminatorFilename);
-            stringBuilder.append(s);
-        }
-        return stringBuilder.toString();
+    SlavesWorks() {
     }
 
     /**
@@ -301,7 +298,7 @@ public class SlavesWorks implements Serializable {
      * @param p 垂直分区产生的pi
      * @return 返回一个数组Object[2], Object[0]装的是L，Object[1]装的是B
      */
-    private Object[] subTreePrepare(List<String> S, String p) {
+    L_B subTreePrepare(List<String> S, String p) {
         class RPL {
             private String R;
             private int P;
@@ -482,7 +479,6 @@ public class SlavesWorks implements Serializable {
                     if (cs < range) {//line 18
                         //line 19
                         B.set(i, start + cs);
-//                        B.set(i, new TypeB(R1.charAt(cs), R2.charAt(cs), start + cs));
                         B_defined.set(i, true);
                         if (B_defined.get(i - 1) || i == 1) {
                             I_done.put(I.get(RPLList.get(i - 1).P), true);
@@ -498,28 +494,26 @@ public class SlavesWorks implements Serializable {
             start += range;
         }
 
-        Object[] LB = new Object[2];
-        List<int[]> newL = new LinkedList<int[]>();
+        List<int[]> newL = new ArrayList<int[]>();
         for (RPL rpl : RPLList)
             newL.add(rpl.L);
-        LB[0] = newL;
-        LB[1] = B;
-        return LB;
+        return new L_B(newL, B);
     }
 
     /**
      * 构建子树
      *
-     * @param L 子树准备返回的L
-     * @param B 子树准备返回的B
+     * @param lb 子树准备返回的L,B
      * @return 返回树的根节点
      */
-    private TreeNode buildSubTree(List<int[]> L, List<Integer> B) {
+    TreeNode buildSubTree(L_B lb) {
         TreeNode root = new TreeNode();
         TreeNode u_ = new TreeNode();
         root.parent = null;
         root.leftChild = u_;
         u_.parent = root;
+        List<int[]> L = lb.getL();
+        List<Integer> B = lb.getB();
         //L-B只有一个元素
         int[] L0 = L.get(0);
         String e_ = S.get(L0[0]).substring(L0[1]);
@@ -649,7 +643,7 @@ public class SlavesWorks implements Serializable {
      * @param p    垂直分区产生的pi
      * @param root 构建子树产生的根节点
      */
-    private void splitSubTree(List<String> S, String p, TreeNode root) {
+    void splitSubTree(List<String> S, String p, TreeNode root) {
         TreeNode currNode = root.leftChild;
         int lastSplit = 0;
         StringBuilder path = new StringBuilder();
@@ -698,7 +692,7 @@ public class SlavesWorks implements Serializable {
      * @param terminatorFileName 终结符-文件名对应列表
      * @return 返回一棵树所有叶节点遍历结果
      */
-    private String traverseTree(TreeNode root, Map<Character, String> terminatorFileName) {
+    String traverseTree(TreeNode root, Map<Character, String> terminatorFileName) {
         Stack<TreeNode> stack = new Stack<TreeNode>();
         TreeNode node = root;
         StringBuilder sb = new StringBuilder();
@@ -716,5 +710,27 @@ public class SlavesWorks implements Serializable {
             node = node.rightSibling;
         }
         return sb.toString();
+    }
+
+    List<String> traverseTree_1(TreeNode root, Map<Character, String> terminatorFileName) {
+        List<String> result = new ArrayList<String>();
+        Stack<TreeNode> stack = new Stack<TreeNode>();
+        TreeNode node = root;
+//        StringBuilder sb = new StringBuilder();
+        if (root == null)
+            return null;
+        while (node != null || !stack.isEmpty()) {
+            while (node != null) {
+                stack.push(node);
+                node = node.leftChild;
+            }
+            node = stack.pop();
+            if (node.leftChild == null) {
+                result.add(String.format("%d %s:%d\n", stack.size(), terminatorFileName.get(node.data.charAt(node.data.length() - 1)), node.index[1]));
+//                sb.append(String.format("%d %s:%d\n", stack.size(), terminatorFileName.get(node.data.charAt(node.data.length() - 1)), node.index[1]));
+            }
+            node = node.rightSibling;
+        }
+        return result;
     }
 }

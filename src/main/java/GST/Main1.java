@@ -1,21 +1,23 @@
 package GST;
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.*;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.LocatedFileStatus;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
-
-import java.io.*;
-import java.net.URI;
-import java.util.*;
-
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.PairFunction;
-import org.apache.spark.api.java.function.VoidFunction;
 import scala.Tuple2;
-import sun.reflect.generics.tree.Tree;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.URI;
+import java.util.*;
 
 //垂直分区
 //Fm     range  time
@@ -43,7 +45,7 @@ import sun.reflect.generics.tree.Tree;
  * Created by Liang on 16-11-9.
  * This is the enter point of program
  */
-public class Main {
+public class Main1 {
     private static String readFile(String url) throws IOException {
         Path path = new Path(url);
         URI uri = path.toUri();
