@@ -78,7 +78,7 @@ public class SlavesWorks implements Serializable {
         for (String Pi : p) {
             Object[] L_B = subTreePrepare(S, Pi);
             TreeNode root = buildSubTree((List<int[]>) L_B[0], (List<Integer>) L_B[1]);
-            splitSubTreeEx(S, Pi, root);
+            splitSubTree(S, Pi, root);
             sb.append(traverseTree(root, terminatorFilename));
         }
         writeToFile(outputURL,"part-"+this.hashCode(),sb.toString());
