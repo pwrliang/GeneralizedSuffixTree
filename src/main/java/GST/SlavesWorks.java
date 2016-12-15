@@ -80,6 +80,7 @@ public class SlavesWorks implements Serializable {
             TreeNode root = buildSubTree((List<int[]>) L_B[0], (List<Integer>) L_B[1]);
             splitSubTree(S, Pi, root);
             sb.append(traverseTree(root, terminatorFilename));
+            //test
         }
         writeToFile(outputURL,"part-"+this.hashCode(),sb.toString());
     }
