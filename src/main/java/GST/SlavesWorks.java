@@ -51,10 +51,6 @@ public class SlavesWorks implements Serializable {
     private static final char SPLITTER_INSERTION = 57001;//拆分并插入叶节点
     private static final char SPLITTER = 57002;//只拆分，不插入叶节点
 
-    private List<String> S;//字符串列表
-    private Set<String> p;//pi列表
-//    private Map<Character, String> terminatorFilename;//终结符-文件名映射
-    private String outputURL;//位于HDFS上的路径，用于结果保存
     private int ELASTIC_RANGE;//弹性范围
 
     /**
@@ -76,25 +72,9 @@ public class SlavesWorks implements Serializable {
         bufferedWriter.close();
     }
 
-    SlavesWorks(List<String> S, int ELASTIC_RANGE) {
-        this.S = S;
-        this.ELASTIC_RANGE = ELASTIC_RANGE;
-    }
-    SlavesWorks(List<String> S) {
-        this.S = S;
-    }
-//    SlavesWorks(Map<Character, String> terminatorFilename) {
-//        this.terminatorFilename = terminatorFilename;
-//    }
 
-    SlavesWorks(List<String> S, Set<String> p, Map<Character, String> terminatorFilename, String outputURL, int ELASTIC_RANGE) {
-        this.S = S;
-        this.p = p;
-        this.outputURL = outputURL;
+    SlavesWorks(int ELASTIC_RANGE) {
         this.ELASTIC_RANGE = ELASTIC_RANGE;
-    }
-
-    SlavesWorks() {
     }
 
     /**
@@ -506,7 +486,7 @@ public class SlavesWorks implements Serializable {
      * @param lb 子树准备返回的L,B
      * @return 返回树的根节点
      */
-    TreeNode buildSubTree(L_B lb) {
+    TreeNode buildSubTree(List<String> S, L_B lb) {
         TreeNode root = new TreeNode();
         TreeNode u_ = new TreeNode();
         root.parent = null;
@@ -587,56 +567,6 @@ public class SlavesWorks implements Serializable {
     }
 
     /**
-     * 拆法1，对被拆节点位置不变，新建节点，把被拆节点信息转移到新节点上，新节点作为被拆节点的左孩子
-     *
-     * @param S    字符串列表
-     * @param p    垂直分区产生的pi
-     * @param root 构建子树产生的根节点
-     */
-    private void splitSubTreeEx(List<String> S, String p, TreeNode root) {
-        TreeNode currNode = root.leftChild;
-        int lastSplit = 0;
-        StringBuilder path = new StringBuilder();
-        for (int i = 0; i < p.length(); i++) {
-            if (p.charAt(i) == SPLITTER || p.charAt(i) == SPLITTER_INSERTION) {
-                String data = currNode.data;
-                //建立一个新节点，将被拆分节点的信息转移给新节点
-                TreeNode newNode = new TreeNode(data.substring(i - lastSplit), currNode.index);
-                currNode.index = null;
-                path.append(data.substring(0, i - lastSplit));
-                currNode.data = data.substring(0, i - lastSplit);
-                if (currNode.leftChild != null) {//将原currNode的孩子节点作为新节点的孩子
-                    newNode.leftChild = currNode.leftChild;
-                    newNode.leftChild.parent = newNode;
-                }
-                newNode.parent = currNode;
-                currNode.leftChild = newNode;
-
-                currNode = newNode;
-                lastSplit = i + 1;
-                if (p.charAt(i) == SPLITTER_INSERTION) {
-                    TreeNode sibling = currNode;
-                    while (sibling.rightSibling != null) {
-                        sibling = sibling.rightSibling;
-                    }
-                    for (int j = 0; j < S.size(); j++) {
-                        String line = S.get(j);
-                        //对于以path结尾的串，则插入叶节点
-                        String replaceTerminator = line.substring(0, line.length() - 1);
-                        if (replaceTerminator.endsWith(path.toString())) {
-                            int start = line.lastIndexOf(path.toString());
-                            TreeNode tmp = new TreeNode(line.charAt(line.length() - 1) + "", new int[]{j, start});
-                            sibling.rightSibling = tmp;
-                            tmp.parent = sibling.parent;
-                            sibling = tmp;
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    /**
      * 新建节点，并让新建节点作为被拆节点的父节点
      *
      * @param S    字符串列表
@@ -710,27 +640,5 @@ public class SlavesWorks implements Serializable {
             node = node.rightSibling;
         }
         return sb.toString();
-    }
-
-    List<String> traverseTree_1(TreeNode root, Map<Character, String> terminatorFileName) {
-        List<String> result = new ArrayList<String>();
-        Stack<TreeNode> stack = new Stack<TreeNode>();
-        TreeNode node = root;
-//        StringBuilder sb = new StringBuilder();
-        if (root == null)
-            return null;
-        while (node != null || !stack.isEmpty()) {
-            while (node != null) {
-                stack.push(node);
-                node = node.leftChild;
-            }
-            node = stack.pop();
-            if (node.leftChild == null) {
-                result.add(String.format("%d %s:%d\n", stack.size(), terminatorFileName.get(node.data.charAt(node.data.length() - 1)), node.index[1]));
-//                sb.append(String.format("%d %s:%d\n", stack.size(), terminatorFileName.get(node.data.charAt(node.data.length() - 1)), node.index[1]));
-            }
-            node = node.rightSibling;
-        }
-        return result;
     }
 }

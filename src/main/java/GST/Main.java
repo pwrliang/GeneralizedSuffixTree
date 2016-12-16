@@ -13,9 +13,8 @@ import java.util.*;
 
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.PairFunction;
-import org.apache.spark.api.java.function.VoidFunction;
+import org.apache.spark.broadcast.Broadcast;
 import scala.Tuple2;
-import sun.reflect.generics.tree.Tree;
 
 //垂直分区
 //Fm     range  time
@@ -78,21 +77,6 @@ public class Main {
         return pathList;
     }
 
-    private static boolean mkdir(String url) throws IOException {
-        Path path = new Path(url);
-        URI uri = path.toUri();
-        String hdfsPath = String.format("%s://%s:%d", uri.getScheme(), uri.getHost(), uri.getPort());
-        Configuration conf = new Configuration();
-        conf.set("fs.defaultFS", hdfsPath);
-
-        FileSystem fileSystem = FileSystem.get(conf);
-        if (!fileSystem.exists(path)) {
-            fileSystem.mkdirs(path);
-            return true;
-        }
-        return false;
-    }
-
     public static void main(String[] args) throws IOException, InterruptedException {
         SparkConf sparkConf = new SparkConf().
                 setAppName("Generalized Suffix Tree");
@@ -105,50 +89,50 @@ public class Main {
         //开始读取文本文件
         List<String> pathList = listFiles(inputURL);
         final Map<Character, String> terminatorFilename = new HashMap<Character, String>();//终结符:文件名
-        final List<String> S = new ArrayList<String>();
-        SlavesWorks masterWork = new SlavesWorks();
+        List<String> S = new ArrayList<String>();
+        final SlavesWorks masterWork = new SlavesWorks(ELASTIC_RANGE);
+
         for (String filename : pathList) {
             String content = readFile(filename);
             Character terminator = masterWork.nextTerminator();
             S.add(content + terminator);
             terminatorFilename.put(terminator, filename.substring(filename.lastIndexOf('/') + 1));
         }
+
         Set<Character> alphabet = masterWork.getAlphabet(S);
         System.out.println("==================Start Vertical Partition=======================");
         Set<Set<String>> setOfVirtualTrees = masterWork.verticalPartitioning(S, alphabet, Fm);
         System.out.println("==================Vertical Partition Finished setOfVirtualTrees:" + setOfVirtualTrees.size() + "================");
         //分配任务
-
-        JavaRDD<Set<String>> vtRDD = sc.parallelize(new ArrayList<Set<String>>(setOfVirtualTrees));
+        final Broadcast<List<String>> broadcastStringList = sc.broadcast(S);
+        JavaRDD<Set<String>> vtRDD = sc.parallelize(new ArrayList<Set<String>>(setOfVirtualTrees), 100);
         //subTreePrepare
         JavaPairRDD<List<String>, List<SlavesWorks.L_B>> subtreePrepared = vtRDD.mapToPair(new PairFunction<Set<String>, List<String>, List<SlavesWorks.L_B>>() {
             public Tuple2<List<String>, List<SlavesWorks.L_B>> call(Set<String> strings) throws Exception {
-                SlavesWorks slavesWorks = new SlavesWorks(S, ELASTIC_RANGE);
                 List<String> piList = new ArrayList<String>(strings);
                 List<SlavesWorks.L_B> list = new ArrayList<SlavesWorks.L_B>();
                 for (String pi : piList)
-                    list.add(slavesWorks.subTreePrepare(S, pi));
+                    list.add(masterWork.subTreePrepare(broadcastStringList.getValue(), pi));
                 return new Tuple2<List<String>, List<SlavesWorks.L_B>>(piList, list);
             }
         });
         System.out.println("==================SubTree Prepare Finished=======================");
-        JavaRDD<String> rootsRDD = subtreePrepared.map(new Function<Tuple2<List<String>, List<SlavesWorks.L_B>>, String>() {
+        JavaRDD<String> resultsRDD = subtreePrepared.map(new Function<Tuple2<List<String>, List<SlavesWorks.L_B>>, String>() {
             public String call(Tuple2<List<String>, List<SlavesWorks.L_B>> listListTuple2) throws Exception {
                 List<String> piList = listListTuple2._1;
                 List<SlavesWorks.L_B> L_B_List = listListTuple2._2;
-                SlavesWorks slavesWorks = new SlavesWorks(S);
                 StringBuilder stringBuilder = new StringBuilder();
                 for (int i = 0; i < piList.size(); i++) {
                     String pi = piList.get(i);
                     SlavesWorks.L_B lb = L_B_List.get(i);
-                    SlavesWorks.TreeNode root = slavesWorks.buildSubTree(lb);
-                    slavesWorks.splitSubTree(S, pi, root);
-                    stringBuilder.append(slavesWorks.traverseTree(root, terminatorFilename));
+                    SlavesWorks.TreeNode root = masterWork.buildSubTree(broadcastStringList.getValue(), lb);
+                    masterWork.splitSubTree(broadcastStringList.getValue(), pi, root);
+                    stringBuilder.append(masterWork.traverseTree(root, terminatorFilename));
                 }
-                return stringBuilder.toString();
+                return stringBuilder.deleteCharAt(stringBuilder.length() - 1).toString();
             }
         });
-        rootsRDD.saveAsTextFile(outputURL);
+        resultsRDD.saveAsTextFile(outputURL);
         System.out.println("=====================Tasks Done============");
     }
 }
