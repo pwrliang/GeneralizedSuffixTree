@@ -1,5 +1,7 @@
 package GST;
 
+import com.esotericsoftware.kryo.Kryo;
+import com.esotericsoftware.kryo.serializers.FieldSerializer;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.*;
 import org.apache.spark.SparkConf;
@@ -13,7 +15,9 @@ import java.util.*;
 
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.PairFunction;
+import org.apache.spark.api.java.function.VoidFunction;
 import org.apache.spark.broadcast.Broadcast;
+import org.apache.spark.serializer.KryoRegistrator;
 import scala.Tuple2;
 
 //垂直分区
@@ -77,9 +81,19 @@ public class Main {
         return pathList;
     }
 
+    public static class ClassRegistrator implements KryoRegistrator {
+        public void registerClasses(Kryo kryo) {
+            kryo.register(SlavesWorks.L_B.class, new FieldSerializer(kryo, SlavesWorks.class));
+            kryo.register(SlavesWorks.TreeNode.class, new FieldSerializer(kryo, SlavesWorks.TreeNode.class));
+            kryo.register(SlavesWorks.class, new FieldSerializer(kryo, SlavesWorks.class));
+        }
+    }
+
     public static void main(String[] args) throws IOException, InterruptedException {
         SparkConf sparkConf = new SparkConf().
                 setAppName("Generalized Suffix Tree");
+        sparkConf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer");
+        sparkConf.set("spark.kryo.registrator", ClassRegistrator.class.getName());
         final JavaSparkContext sc = new JavaSparkContext(sparkConf);
         final String inputURL = args[0];
         final String outputURL = args[1];
@@ -91,7 +105,6 @@ public class Main {
         final Map<Character, String> terminatorFilename = new HashMap<Character, String>();//终结符:文件名
         List<String> S = new ArrayList<String>();
         final SlavesWorks masterWork = new SlavesWorks(ELASTIC_RANGE);
-
         for (String filename : pathList) {
             String content = readFile(filename);
             Character terminator = masterWork.nextTerminator();
@@ -105,7 +118,19 @@ public class Main {
         System.out.println("==================Vertical Partition Finished setOfVirtualTrees:" + setOfVirtualTrees.size() + "================");
         //分配任务
         final Broadcast<List<String>> broadcastStringList = sc.broadcast(S);
-        JavaRDD<Set<String>> vtRDD = sc.parallelize(new ArrayList<Set<String>>(setOfVirtualTrees), 100);
+        JavaRDD<Set<String>> vtRDD = sc.parallelize(new ArrayList<Set<String>>(setOfVirtualTrees));
+//        long start = System.currentTimeMillis();
+//        vtRDD.foreach(new VoidFunction<Set<String>>() {
+//            public void call(Set<String> strings) throws Exception {
+//                List<String> piList = new ArrayList<String>(strings);
+//                List<SlavesWorks.L_B> list = new ArrayList<SlavesWorks.L_B>();
+//                for (String pi : piList)
+//                    list.add(masterWork.subTreePrepare(broadcastStringList.getValue(), pi));
+//
+//            }
+//        });
+//        System.out.println("end:" + (System.currentTimeMillis() - start) / 1000);
+//        System.exit(0);
         //subTreePrepare
         JavaPairRDD<List<String>, List<SlavesWorks.L_B>> subtreePrepared = vtRDD.mapToPair(new PairFunction<Set<String>, List<String>, List<SlavesWorks.L_B>>() {
             public Tuple2<List<String>, List<SlavesWorks.L_B>> call(Set<String> strings) throws Exception {

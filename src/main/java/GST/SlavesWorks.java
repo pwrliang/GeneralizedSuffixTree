@@ -13,7 +13,7 @@ import java.util.*;
  * This is the implementation of Era
  */
 public class SlavesWorks implements Serializable {
-    static class TreeNode implements Serializable{
+    static class TreeNode implements Serializable {
         String data;
         int[] index;
         TreeNode parent;
@@ -29,7 +29,7 @@ public class SlavesWorks implements Serializable {
         }
     }
 
-    static class L_B implements Serializable{
+    static class L_B implements Serializable {
         List<int[]> L;
         List<Integer> B;
 
@@ -71,8 +71,8 @@ public class SlavesWorks implements Serializable {
         bufferedWriter.write(content);
         bufferedWriter.close();
     }
-
-
+    SlavesWorks() {
+    }
     SlavesWorks(int ELASTIC_RANGE) {
         this.ELASTIC_RANGE = ELASTIC_RANGE;
     }
@@ -104,7 +104,7 @@ public class SlavesWorks implements Serializable {
     /**
      * 扫描所有串，生成字母表
      */
-    Set<Character> getAlphabet(List<String> S) {
+    static Set<Character> getAlphabet(List<String> S) {
         Set<Character> alphabet = new HashSet<Character>();
         for (String line : S) {
             for (int j = 0; j < line.length() - 1; j++) {
@@ -290,7 +290,6 @@ public class SlavesWorks implements Serializable {
             }
         }
         List<Integer> B = new ArrayList<Integer>();
-        List<Boolean> B_defined = new ArrayList<Boolean>();
         List<Integer> I = new ArrayList<Integer>();
         Map<Integer, Boolean> I_done = new HashMap<Integer, Boolean>();
         List<Integer> A = new ArrayList<Integer>();
@@ -312,8 +311,7 @@ public class SlavesWorks implements Serializable {
         }
 
         for (int i = 0; i < RPLList.size(); i++) {
-            B.add(0);
-            B_defined.add(false);
+            B.add(0);//the value of B[i] is 0 means B[i] is undefined
             I.add(i);
             I_done.put(i, false);
             A.add(0);
@@ -329,8 +327,8 @@ public class SlavesWorks implements Serializable {
             //line 8
             //假设B都定义了
             boolean defined = true;
-            for (int i = 1; i < B_defined.size(); i++) {
-                if (!B_defined.get(i)) {
+            for (int i = 1; i < B.size(); i++) {
+                if (B.get(i) == 0) {
                     //存在未定义的B
                     defined = false;
                     break;
@@ -442,9 +440,9 @@ public class SlavesWorks implements Serializable {
             }
             I = newI;
             ////////////Line 13-Line 15 END////////
-            for (int i = 1; i < B_defined.size(); i++) {
+            for (int i = 1; i < B.size(); i++) {
                 //B[i] is not defined
-                if (!B_defined.get(i)) { //line 16
+                if (B.get(i) == 0) { //line 16
                     //cs is the common S-prefix of R[i-1] and R[i]
                     int cs = 0;
                     String R1 = RPLList.get(i - 1).R;
@@ -459,12 +457,11 @@ public class SlavesWorks implements Serializable {
                     if (cs < range) {//line 18
                         //line 19
                         B.set(i, start + cs);
-                        B_defined.set(i, true);
-                        if (B_defined.get(i - 1) || i == 1) {
+                        if (B.get(i - 1) > 0 || i == 1) {
                             I_done.put(I.get(RPLList.get(i - 1).P), true);
                             A_done.set(i - 1, true);
                         }
-                        if (i == RPLList.size() - 1 || B_defined.get(i + 1)) {
+                        if (i == RPLList.size() - 1 || B.get(i + 1) > 0) {
                             I_done.put(I.get(RPLList.get(i).P), true);
                             A_done.set(i, true);
                         }
