@@ -13,9 +13,11 @@ import java.util.*;
  * This is the implementation of Era
  */
 public class SlavesWorks implements Serializable {
-    static class TreeNode implements Serializable {
-        String data;
-        int[] index;
+    static class TreeNode implements Serializable, Cloneable {
+        int index;//index of text array
+        int start;//start position of text (inbound)
+        int end;//end position of text (outbound)
+        int suffix_index;//index of text suffix
         TreeNode parent;
         TreeNode leftChild;
         TreeNode rightSibling;
@@ -23,9 +25,30 @@ public class SlavesWorks implements Serializable {
         private TreeNode() {
         }
 
-        private TreeNode(String data, int[] index) {
-            this.data = data;
+        //        private TreeNode(String data, int[] index) {
+//            this.data = data;
+//            this.index = index;
+//        }
+        private TreeNode(String data, int start, int index) {
+            this.start = start;
             this.index = index;
+        }
+
+        private TreeNode(int index, int start, int end) {
+            this.start = start;
+            this.end = end;
+            this.index = index;
+        }
+
+        @Override
+        protected TreeNode clone() {
+            TreeNode treeNode = null;
+            try {
+                treeNode = (TreeNode) super.clone();
+            } catch (CloneNotSupportedException e) {
+                e.printStackTrace();
+            }
+            return treeNode;
         }
     }
 
@@ -71,8 +94,10 @@ public class SlavesWorks implements Serializable {
         bufferedWriter.write(content);
         bufferedWriter.close();
     }
+
     SlavesWorks() {
     }
+
     SlavesWorks(int ELASTIC_RANGE) {
         this.ELASTIC_RANGE = ELASTIC_RANGE;
     }
@@ -493,14 +518,16 @@ public class SlavesWorks implements Serializable {
         List<Integer> B = lb.getB();
         //L-B只有一个元素
         int[] L0 = L.get(0);
-        String e_ = S.get(L0[0]).substring(L0[1]);
-        u_.data = e_;
-        u_.index = L0;
+        u_.index = L0[0];
+        u_.start = L0[1];
+        u_.end = S.get(L0[0]).length();
+        u_.suffix_index = L0[1];
+
         Stack<TreeNode> stack = new Stack<TreeNode>();
         stack.push(u_);
         Map<TreeNode, Integer> v1Length = new HashMap<TreeNode, Integer>();//从根节点到某一结点走过的字符串的长度
         v1Length.put(root, 0);
-        int depth = e_.length();
+        int depth = u_.end-u_.start;
         for (int i = 1; i < B.size(); i++) {
             int offset = B.get(i);//公共前缀长度common
             TreeNode v1, v2, u;
@@ -508,45 +535,44 @@ public class SlavesWorks implements Serializable {
                 TreeNode se = stack.pop();
                 v1 = se.parent;
                 v2 = se;
-                depth -= se.data.length();
+                depth -=se.end-se.start;
             } while (depth > offset);
             if (depth == offset) {
                 u = v1.leftChild;
             } else {
-                String se = v2.data;
                 //寻找根节点到v1经历了几个字符
                 int before = v1Length.get(v1);
                 int end = offset - before;//跳过根节点到v1这么长的字符
-                if (end > se.length()) {
-                    end = se.length();
+                if (v2.start+end > v2.end) {
+                    System.err.println("error");
                 }
-                v2.data = se.substring(0, end);
-                TreeNode vt = new TreeNode(se.substring(end), v2.index);
-                if (v2.leftChild != null) {
-                    vt.leftChild = v2.leftChild;
-                    //修改v2孩子的父母为vt
-                    v2.leftChild.parent = vt;
-                    TreeNode sibling = v2.leftChild;
-                    while (sibling.rightSibling != null) {
-                        sibling.rightSibling.parent = vt;
-                        sibling = sibling.rightSibling;
-                    }
+
+                TreeNode oldV2 = v2.clone();
+                TreeNode vt = v2;
+                vt.end = vt.start + end;
+                vt.suffix_index = 0;
+                v2 = new TreeNode( oldV2.index, vt.end, oldV2.end);
+                //vt原来的左子树交给v2
+                if (vt.leftChild != null) {
+                    v2.leftChild = vt.leftChild;
+                    v2.leftChild.parent = v2;
                 }
-                v2.leftChild = vt;
-                vt.parent = v2;
-                v2.index = null;
+                vt.leftChild = v2;
+                v2.parent = vt;
+                v2.suffix_index = oldV2.suffix_index;
+
                 //根节点到拆分形成的节点经过的字符串就是offset
-                v1Length.put(v2, offset);
-                u = vt;
-                stack.push(v2);
-                depth += v2.data.length();
+                v1Length.put(vt, offset);
+                u = v2;
+                stack.push(vt);
+                depth += vt.end-vt.start;
             }
             u_ = new TreeNode();
             TreeNode next = u;
             while (next.rightSibling != null)
                 next = next.rightSibling;
             next.rightSibling = u_;
-            u_.parent = next.parent;
+            u_.parent = v2.parent;
             //标记(u,u'),遇到终结符则停止
             //L.get(i)+offset到末尾，存在$0则不要了
             int[] Li = L.get(i);
@@ -555,10 +581,12 @@ public class SlavesWorks implements Serializable {
             //计算end越界后，则只保留终结符
             if (end >= sLi.length())
                 end = sLi.length() - 1;
-            u_.data = sLi.substring(end);
-            u_.index = Li;
+            u_.index = Li[0];
+            u_.start = end;
+            u_.end = sLi.length();
+            u_.suffix_index = Li[1];
             stack.push(u_);
-            depth += u_.data.length();
+            depth += u_.end-u_.start;
         }
         return root;
     }
@@ -576,19 +604,17 @@ public class SlavesWorks implements Serializable {
         StringBuilder path = new StringBuilder();
         for (int i = 0; i < p.length(); i++) {
             if (p.charAt(i) == SPLITTER || p.charAt(i) == SPLITTER_INSERTION) {
-                String data = currNode.data;
-                TreeNode newNode = new TreeNode(data.substring(0, i - lastSplit), null);
-                currNode.data = data.substring(i - lastSplit);
+                TreeNode newNode = new TreeNode(
+                        currNode.index, currNode.start, currNode.start + (i - lastSplit));
                 currNode.parent.leftChild = newNode;
                 newNode.parent = currNode.parent;
                 newNode.leftChild = currNode;
                 currNode.parent = newNode;
                 //将currNode的兄弟转移给上层
-                if (currNode.rightSibling != null) {
-                    newNode.rightSibling = currNode.rightSibling;
-                    currNode.rightSibling = null;
-                }
-                path.append(newNode.data);
+                newNode.rightSibling = currNode.rightSibling;
+                currNode.rightSibling = null;
+                String s  = S.get(newNode.index);
+                path.append(s.substring(newNode.start,newNode.end));
                 lastSplit = i + 1;
                 if (p.charAt(i) == SPLITTER_INSERTION) {
                     TreeNode sibling = currNode;
@@ -601,7 +627,8 @@ public class SlavesWorks implements Serializable {
                         String replaceTerminator = line.substring(0, line.length() - 1);
                         if (replaceTerminator.endsWith(path.toString())) {
                             int start = line.lastIndexOf(path.toString());
-                            TreeNode tmp = new TreeNode(line.charAt(line.length() - 1) + "", new int[]{j, start});
+                            TreeNode tmp = new TreeNode(j, start, line.length());
+                            tmp.suffix_index = start;
                             sibling.rightSibling = tmp;
                             tmp.parent = sibling.parent;
                             sibling = tmp;
@@ -619,7 +646,7 @@ public class SlavesWorks implements Serializable {
      * @param terminatorFileName 终结符-文件名对应列表
      * @return 返回一棵树所有叶节点遍历结果
      */
-    String traverseTree(TreeNode root, Map<Character, String> terminatorFileName) {
+    String traverseTree(List<String> S, TreeNode root, Map<Character, String> terminatorFileName) {
         Stack<TreeNode> stack = new Stack<TreeNode>();
         TreeNode node = root;
         StringBuilder sb = new StringBuilder();
@@ -632,7 +659,7 @@ public class SlavesWorks implements Serializable {
             }
             node = stack.pop();
             if (node.leftChild == null) {
-                sb.append(String.format("%d %s:%d\n", stack.size(), terminatorFileName.get(node.data.charAt(node.data.length() - 1)), node.index[1]));
+                sb.append(String.format("%d %s:%d\n", stack.size(), terminatorFileName.get(S.get(node.index).charAt(node.end-1)), node.suffix_index));
             }
             node = node.rightSibling;
         }

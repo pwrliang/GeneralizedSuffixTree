@@ -11,7 +11,7 @@ import java.util.concurrent.TimeUnit;
  * This is the single version
  */
 public class SingleVersion {
-    private static String readLocalFile(File file) {
+    static String readLocalFile(File file) {
         StringBuilder sb = new StringBuilder();
         BufferedReader reader = null;
         try {
@@ -35,7 +35,7 @@ public class SingleVersion {
         return sb.toString();
     }
 
-    private static List<String> readLocalFileLine(File file) {
+    static List<String> readLocalFileLine(File file) {
         List<String> lines = new ArrayList<String>();
         BufferedReader reader = null;
         try {
@@ -100,7 +100,7 @@ public class SingleVersion {
 
     //split1 695ms split2 626ms
     public static void main(String[] args) throws IOException, InterruptedException {
-        File folder = new File("/home/gengl/Desktop/gengl/Documents/exset/ex3");
+        File folder = new File("D:\\Liang_Projects\\exset\\ex1");
         String[] fileNames = folder.list();
         final Map<Character, String> terminatorFilename = new HashMap<Character, String>();
         final SlavesWorks masterWorks = new SlavesWorks();
@@ -114,7 +114,7 @@ public class SingleVersion {
         }
 
         final Set<Character> alphabet = SlavesWorks.getAlphabet(S);
-        final List<String> rightResult = readLocalFileLine(new File("/home/gengl/Desktop/gengl/Documents/exset/res3.txt"));
+        final List<String> rightResult = readLocalFileLine(new File("D:\\Liang_Projects\\exset\\res1.txt"));
         final ThreadPoolExecutor executorService = (ThreadPoolExecutor) Executors.newFixedThreadPool(50);
         for (int i = 1; i < 100000; i++) {
             final int finalI = i;
@@ -136,7 +136,7 @@ public class SingleVersion {
                             SlavesWorks.L_B lb = slavesWorks.subTreePrepare(S, p);
                             SlavesWorks.TreeNode treeNode = slavesWorks.buildSubTree(S, lb);
                             slavesWorks.splitSubTree(S, p, treeNode);
-                            String subTree = slavesWorks.traverseTree(treeNode, terminatorFilename);
+                            String subTree = slavesWorks.traverseTree(S,treeNode, terminatorFilename);
                             String[] lines = subTree.split("\n");
                             for (String line : lines)
                                 result.add(line);
@@ -145,7 +145,7 @@ public class SingleVersion {
                     sort(result);
 
                     if (rightResult.size() != result.size())
-                        System.out.println(String.format("Fm:%d range:%d", Fm, range));
+                        System.out.println(String.format("Fm:%d range:%d %d %d", Fm, range,rightResult.size(),result.size()));
                     for (int n = 0; n < rightResult.size(); n++)
                         if (!rightResult.get(n).equals(result.get(n))) {
                             System.out.println(String.format("Fm:%d range:%d", Fm, range));

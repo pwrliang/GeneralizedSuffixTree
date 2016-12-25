@@ -103,7 +103,7 @@ public class Main {
         //开始读取文本文件
         List<String> pathList = listFiles(inputURL);
         final Map<Character, String> terminatorFilename = new HashMap<Character, String>();//终结符:文件名
-        List<String> S = new ArrayList<String>();
+        final List<String> S = new ArrayList<String>();
         final SlavesWorks masterWork = new SlavesWorks(ELASTIC_RANGE);
         for (String filename : pathList) {
             String content = readFile(filename);
@@ -152,7 +152,7 @@ public class Main {
                     SlavesWorks.L_B lb = L_B_List.get(i);
                     SlavesWorks.TreeNode root = masterWork.buildSubTree(broadcastStringList.getValue(), lb);
                     masterWork.splitSubTree(broadcastStringList.getValue(), pi, root);
-                    stringBuilder.append(masterWork.traverseTree(root, terminatorFilename));
+                    stringBuilder.append(masterWork.traverseTree(S,root, terminatorFilename));
                 }
                 return stringBuilder.deleteCharAt(stringBuilder.length() - 1).toString();
             }
