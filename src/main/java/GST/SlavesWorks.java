@@ -527,7 +527,7 @@ public class SlavesWorks implements Serializable {
         stack.push(u_);
         Map<TreeNode, Integer> v1Length = new HashMap<TreeNode, Integer>();//从根节点到某一结点走过的字符串的长度
         v1Length.put(root, 0);
-        int depth = u_.end-u_.start;
+        int depth = u_.end - u_.start;
         for (int i = 1; i < B.size(); i++) {
             int offset = B.get(i);//公共前缀长度common
             TreeNode v1, v2, u;
@@ -535,7 +535,7 @@ public class SlavesWorks implements Serializable {
                 TreeNode se = stack.pop();
                 v1 = se.parent;
                 v2 = se;
-                depth -=se.end-se.start;
+                depth -= se.end - se.start;
             } while (depth > offset);
             if (depth == offset) {
                 u = v1.leftChild;
@@ -543,19 +543,24 @@ public class SlavesWorks implements Serializable {
                 //寻找根节点到v1经历了几个字符
                 int before = v1Length.get(v1);
                 int end = offset - before;//跳过根节点到v1这么长的字符
-                if (v2.start+end > v2.end) {
+                if (v2.start + end > v2.end) {
                     System.err.println("error");
                 }
 
                 TreeNode oldV2 = v2.clone();
                 TreeNode vt = v2;
-                vt.end = vt.start + end;
+                vt.end = vt.start + end;//前半部分(v1,vt)字符串
                 vt.suffix_index = 0;
-                v2 = new TreeNode( oldV2.index, vt.end, oldV2.end);
+                v2 = new TreeNode(oldV2.index, vt.end, oldV2.end);//(vt,v2)后半部分字符串
                 //vt原来的左子树交给v2
                 if (vt.leftChild != null) {
                     v2.leftChild = vt.leftChild;
-                    v2.leftChild.parent = v2;
+                    //修改v2左子树及左子树右兄弟的父节点
+                    TreeNode next = v2.leftChild;
+                    while (next != null) {
+                        next.parent = v2;
+                        next = next.rightSibling;
+                    }
                 }
                 vt.leftChild = v2;
                 v2.parent = vt;
@@ -565,7 +570,7 @@ public class SlavesWorks implements Serializable {
                 v1Length.put(vt, offset);
                 u = v2;
                 stack.push(vt);
-                depth += vt.end-vt.start;
+                depth += vt.end - vt.start;
             }
             u_ = new TreeNode();
             TreeNode next = u;
@@ -586,7 +591,7 @@ public class SlavesWorks implements Serializable {
             u_.end = sLi.length();
             u_.suffix_index = Li[1];
             stack.push(u_);
-            depth += u_.end-u_.start;
+            depth += u_.end - u_.start;
         }
         return root;
     }
@@ -606,6 +611,7 @@ public class SlavesWorks implements Serializable {
             if (p.charAt(i) == SPLITTER || p.charAt(i) == SPLITTER_INSERTION) {
                 TreeNode newNode = new TreeNode(
                         currNode.index, currNode.start, currNode.start + (i - lastSplit));
+                currNode.start=newNode.end;
                 currNode.parent.leftChild = newNode;
                 newNode.parent = currNode.parent;
                 newNode.leftChild = currNode;
@@ -613,8 +619,8 @@ public class SlavesWorks implements Serializable {
                 //将currNode的兄弟转移给上层
                 newNode.rightSibling = currNode.rightSibling;
                 currNode.rightSibling = null;
-                String s  = S.get(newNode.index);
-                path.append(s.substring(newNode.start,newNode.end));
+                String s = S.get(newNode.index);
+                path.append(s.substring(newNode.start, newNode.end));
                 lastSplit = i + 1;
                 if (p.charAt(i) == SPLITTER_INSERTION) {
                     TreeNode sibling = currNode;
@@ -659,7 +665,7 @@ public class SlavesWorks implements Serializable {
             }
             node = stack.pop();
             if (node.leftChild == null) {
-                sb.append(String.format("%d %s:%d\n", stack.size(), terminatorFileName.get(S.get(node.index).charAt(node.end-1)), node.suffix_index));
+                sb.append(String.format("%d %s:%d\n", stack.size(), terminatorFileName.get(S.get(node.index).charAt(node.end - 1)), node.suffix_index));
             }
             node = node.rightSibling;
         }

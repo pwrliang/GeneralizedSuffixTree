@@ -100,7 +100,7 @@ public class SingleVersion {
 
     //split1 695ms split2 626ms
     public static void main(String[] args) throws IOException, InterruptedException {
-        File folder = new File("D:\\Liang_Projects\\exset\\ex1");
+        File folder = new File("D:\\Liang_Projects\\exset\\ex2");
         String[] fileNames = folder.list();
         final Map<Character, String> terminatorFilename = new HashMap<Character, String>();
         final SlavesWorks masterWorks = new SlavesWorks();
@@ -114,7 +114,7 @@ public class SingleVersion {
         }
 
         final Set<Character> alphabet = SlavesWorks.getAlphabet(S);
-        final List<String> rightResult = readLocalFileLine(new File("D:\\Liang_Projects\\exset\\res1.txt"));
+        final List<String> rightResult = readLocalFileLine(new File("D:\\Liang_Projects\\exset\\res2.txt"));
         final ThreadPoolExecutor executorService = (ThreadPoolExecutor) Executors.newFixedThreadPool(50);
         for (int i = 1; i < 100000; i++) {
             final int finalI = i;

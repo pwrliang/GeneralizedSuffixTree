@@ -31,6 +31,8 @@ public class Test {
         SlavesWorks slavesWorks = new SlavesWorks(range);
         for (Set<String> virtualTrees : setOfVirtualTrees) {
             for (String p : virtualTrees) {
+//                if (p.length()==5 && p.startsWith("i") && p.endsWith(" "))
+//                    System.out.println(p);
                 SlavesWorks.L_B lb = slavesWorks.subTreePrepare(S, p);
                 SlavesWorks.TreeNode treeNode = slavesWorks.buildSubTree(S, lb);
                 slavesWorks.splitSubTree(S, p, treeNode);
