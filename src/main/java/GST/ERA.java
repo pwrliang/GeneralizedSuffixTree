@@ -571,7 +571,7 @@ public class ERA implements Serializable {
             //计算start越界后，则只保留终结符
 //            if (start >= sLi.length())
 //                start = sLi.length() - 1;
-            u_ = new TreeNode(Li[0],start,sLi.length());
+            u_ = new TreeNode(Li[0], start, sLi.length());
             TreeNode next = u;
             while (next.rightSibling != null)
                 next = next.rightSibling;
@@ -652,8 +652,6 @@ public class ERA implements Serializable {
                 node = node.leftChild;
             }
             node = stack.pop();
-            if(node.leftChild==null && node.suffix_index==-1 || node.leftChild!=null && node.suffix_index!=-1)
-                System.err.println("eeeeeeeeeee");
             if (node.leftChild == null) {
                 sb.append(String.format("%d %s:%d\n", stack.size(), terminatorFileName.get(S.get(node.index).charAt(node.end - 1)), node.suffix_index));
             }

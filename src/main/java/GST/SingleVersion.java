@@ -136,7 +136,7 @@ public class SingleVersion {
                             ERA.L_B lb = slavesWorks.subTreePrepare(S, p);
                             ERA.TreeNode treeNode = slavesWorks.buildSubTree(S, lb);
                             slavesWorks.splitSubTree(S, p, treeNode);
-                            String subTree = slavesWorks.traverseTree(S,treeNode, terminatorFilename);
+                            String subTree = slavesWorks.traverseTree(S, treeNode, terminatorFilename);
                             String[] lines = subTree.split("\n");
                             for (String line : lines)
                                 result.add(line);
@@ -145,7 +145,7 @@ public class SingleVersion {
                     sort(result);
 
                     if (rightResult.size() != result.size())
-                        System.out.println(String.format("Fm:%d range:%d %d %d", Fm, range,rightResult.size(),result.size()));
+                        System.out.println(String.format("Fm:%d range:%d %d %d", Fm, range, rightResult.size(), result.size()));
                     for (int n = 0; n < rightResult.size(); n++)
                         if (!rightResult.get(n).equals(result.get(n))) {
                             System.out.println(String.format("Fm:%d range:%d", Fm, range));

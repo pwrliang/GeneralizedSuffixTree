@@ -96,13 +96,15 @@ public class Main {
         final JavaSparkContext sc = new JavaSparkContext(sparkConf);
         final String inputURL = args[0];
         final String outputURL = args[1];
-        final int Fm = Integer.parseInt(args[2]);
-        final int ELASTIC_RANGE = Integer.parseInt(args[3]);
+        final String tmpURL = args[2];
+        final int Fm = Integer.parseInt(args[3]);
+        final int ELASTIC_RANGE = Integer.parseInt(args[4]);
+        sc.setCheckpointDir(tmpURL);
 
         //开始读取文本文件
         List<String> pathList = listFiles(inputURL);
-        final Map<Character, String> terminatorFilename = new HashMap<Character, String>();//终结符:文件名
-        final List<String> S = new ArrayList<String>();
+        Map<Character, String> terminatorFilename = new HashMap<Character, String>();//终结符:文件名
+        List<String> S = new ArrayList<String>();
         final ERA era = new ERA(ELASTIC_RANGE);
         for (String filename : pathList) {
             String content = readFile(filename);
@@ -117,7 +119,8 @@ public class Main {
         System.out.println("==================Vertical Partition Finished setOfVirtualTrees:" + setOfVirtualTrees.size() + "================");
         //分配任务
         final Broadcast<List<String>> broadcastStringList = sc.broadcast(S);
-        JavaRDD<Set<String>> vtRDD = sc.parallelize(new ArrayList<Set<String>>(setOfVirtualTrees));
+        final Broadcast<Map<Character, String>> broadcasterTerminatorFilename = sc.broadcast(terminatorFilename);
+        JavaRDD<Set<String>> vtRDD = sc.parallelize(new ArrayList<Set<String>>(setOfVirtualTrees),100);
         JavaPairRDD<List<String>, List<ERA.L_B>> subtreePrepared = vtRDD.mapToPair(new PairFunction<Set<String>, List<String>, List<ERA.L_B>>() {
             public Tuple2<List<String>, List<ERA.L_B>> call(Set<String> strings) throws Exception {
                 List<String> piList = new ArrayList<String>(strings);//不能直接用Set，因为不保证有序
@@ -127,6 +130,7 @@ public class Main {
                 return new Tuple2<List<String>, List<ERA.L_B>>(piList, LBList);
             }
         });
+        subtreePrepared.checkpoint();
         System.out.println("==================SubTree Prepare Finished=======================");
         JavaRDD<String> resultsRDD = subtreePrepared.map(new Function<Tuple2<List<String>, List<ERA.L_B>>, String>() {
             public String call(Tuple2<List<String>, List<ERA.L_B>> listListTuple2) throws Exception {
@@ -138,12 +142,13 @@ public class Main {
                     ERA.L_B lb = L_B_List.get(i);
                     ERA.TreeNode root = era.buildSubTree(broadcastStringList.getValue(), lb);
                     era.splitSubTree(broadcastStringList.getValue(), pi, root);
-                    partialResult.append(era.traverseTree(S,root, terminatorFilename));
+                    partialResult.append(era.traverseTree(broadcastStringList.getValue(), root, broadcasterTerminatorFilename.getValue()));
                 }
                 //去掉多余的回车？？
                 return partialResult.deleteCharAt(partialResult.length() - 1).toString();
             }
         });
+        resultsRDD.checkpoint();
         resultsRDD.saveAsTextFile(outputURL);
         System.out.println("=====================Tasks Done============");
     }
