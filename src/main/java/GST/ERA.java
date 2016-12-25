@@ -14,24 +14,15 @@ import java.util.*;
  */
 public class ERA implements Serializable {
     static class TreeNode implements Serializable, Cloneable {
-        int index;//index of text array
-        int start;//start position of text (inbound)
-        int end;//end position of text (outbound)
-        int suffix_index;//index of text suffix
+        int index;//字符串S列表的索引，代表第几个串
+        int start;//串中起始位置(包括)
+        int end;//串中结束为止(不包括)
+        int suffix_index = -1;//叶子结点专用，主串中的起始位置
         TreeNode parent;
         TreeNode leftChild;
         TreeNode rightSibling;
 
         private TreeNode() {
-        }
-
-        //        private TreeNode(String data, int[] index) {
-//            this.data = data;
-//            this.index = index;
-//        }
-        private TreeNode(String data, int start, int index) {
-            this.start = start;
-            this.index = index;
         }
 
         private TreeNode(int index, int start, int end) {
@@ -611,7 +602,7 @@ public class ERA implements Serializable {
             if (p.charAt(i) == SPLITTER || p.charAt(i) == SPLITTER_INSERTION) {
                 TreeNode newNode = new TreeNode(
                         currNode.index, currNode.start, currNode.start + (i - lastSplit));
-                currNode.start=newNode.end;
+                currNode.start = newNode.end;
                 currNode.parent.leftChild = newNode;
                 newNode.parent = currNode.parent;
                 newNode.leftChild = currNode;
