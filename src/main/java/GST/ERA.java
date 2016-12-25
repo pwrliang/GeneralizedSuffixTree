@@ -12,7 +12,7 @@ import java.util.*;
  * Created by lib on 16-11-11.
  * This is the implementation of Era
  */
-public class SlavesWorks implements Serializable {
+public class ERA implements Serializable {
     static class TreeNode implements Serializable, Cloneable {
         int index;//index of text array
         int start;//start position of text (inbound)
@@ -95,10 +95,10 @@ public class SlavesWorks implements Serializable {
         bufferedWriter.close();
     }
 
-    SlavesWorks() {
+    ERA() {
     }
 
-    SlavesWorks(int ELASTIC_RANGE) {
+    ERA(int ELASTIC_RANGE) {
         this.ELASTIC_RANGE = ELASTIC_RANGE;
     }
 
@@ -543,9 +543,9 @@ public class SlavesWorks implements Serializable {
                 //寻找根节点到v1经历了几个字符
                 int before = v1Length.get(v1);
                 int end = offset - before;//跳过根节点到v1这么长的字符
-                if (v2.start + end > v2.end) {
-                    System.err.println("error");
-                }
+//                if (v2.start + end > v2.end) {
+//                    System.err.println("error");
+//                }
 
                 TreeNode oldV2 = v2.clone();
                 TreeNode vt = v2;

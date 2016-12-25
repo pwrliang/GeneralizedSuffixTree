@@ -15,7 +15,6 @@ import java.util.*;
 
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.PairFunction;
-import org.apache.spark.api.java.function.VoidFunction;
 import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.serializer.KryoRegistrator;
 import scala.Tuple2;
@@ -83,9 +82,9 @@ public class Main {
 
     public static class ClassRegistrator implements KryoRegistrator {
         public void registerClasses(Kryo kryo) {
-            kryo.register(SlavesWorks.L_B.class, new FieldSerializer(kryo, SlavesWorks.class));
-            kryo.register(SlavesWorks.TreeNode.class, new FieldSerializer(kryo, SlavesWorks.TreeNode.class));
-            kryo.register(SlavesWorks.class, new FieldSerializer(kryo, SlavesWorks.class));
+            kryo.register(ERA.L_B.class, new FieldSerializer(kryo, ERA.class));
+            kryo.register(ERA.TreeNode.class, new FieldSerializer(kryo, ERA.TreeNode.class));
+            kryo.register(ERA.class, new FieldSerializer(kryo, ERA.class));
         }
     }
 
@@ -104,57 +103,45 @@ public class Main {
         List<String> pathList = listFiles(inputURL);
         final Map<Character, String> terminatorFilename = new HashMap<Character, String>();//终结符:文件名
         final List<String> S = new ArrayList<String>();
-        final SlavesWorks masterWork = new SlavesWorks(ELASTIC_RANGE);
+        final ERA era = new ERA(ELASTIC_RANGE);
         for (String filename : pathList) {
             String content = readFile(filename);
-            Character terminator = masterWork.nextTerminator();
+            Character terminator = era.nextTerminator();
             S.add(content + terminator);
             terminatorFilename.put(terminator, filename.substring(filename.lastIndexOf('/') + 1));
         }
 
-        Set<Character> alphabet = masterWork.getAlphabet(S);
+        Set<Character> alphabet = ERA.getAlphabet(S);//扫描串获得字母表
         System.out.println("==================Start Vertical Partition=======================");
-        Set<Set<String>> setOfVirtualTrees = masterWork.verticalPartitioning(S, alphabet, Fm);
+        Set<Set<String>> setOfVirtualTrees = era.verticalPartitioning(S, alphabet, Fm);//开始垂直分区
         System.out.println("==================Vertical Partition Finished setOfVirtualTrees:" + setOfVirtualTrees.size() + "================");
         //分配任务
         final Broadcast<List<String>> broadcastStringList = sc.broadcast(S);
         JavaRDD<Set<String>> vtRDD = sc.parallelize(new ArrayList<Set<String>>(setOfVirtualTrees));
-//        long start = System.currentTimeMillis();
-//        vtRDD.foreach(new VoidFunction<Set<String>>() {
-//            public void call(Set<String> strings) throws Exception {
-//                List<String> piList = new ArrayList<String>(strings);
-//                List<SlavesWorks.L_B> list = new ArrayList<SlavesWorks.L_B>();
-//                for (String pi : piList)
-//                    list.add(masterWork.subTreePrepare(broadcastStringList.getValue(), pi));
-//
-//            }
-//        });
-//        System.out.println("end:" + (System.currentTimeMillis() - start) / 1000);
-//        System.exit(0);
-        //subTreePrepare
-        JavaPairRDD<List<String>, List<SlavesWorks.L_B>> subtreePrepared = vtRDD.mapToPair(new PairFunction<Set<String>, List<String>, List<SlavesWorks.L_B>>() {
-            public Tuple2<List<String>, List<SlavesWorks.L_B>> call(Set<String> strings) throws Exception {
-                List<String> piList = new ArrayList<String>(strings);
-                List<SlavesWorks.L_B> list = new ArrayList<SlavesWorks.L_B>();
+        JavaPairRDD<List<String>, List<ERA.L_B>> subtreePrepared = vtRDD.mapToPair(new PairFunction<Set<String>, List<String>, List<ERA.L_B>>() {
+            public Tuple2<List<String>, List<ERA.L_B>> call(Set<String> strings) throws Exception {
+                List<String> piList = new ArrayList<String>(strings);//不能直接用Set，因为不保证有序
+                List<ERA.L_B> LBList = new ArrayList<ERA.L_B>();
                 for (String pi : piList)
-                    list.add(masterWork.subTreePrepare(broadcastStringList.getValue(), pi));
-                return new Tuple2<List<String>, List<SlavesWorks.L_B>>(piList, list);
+                    LBList.add(era.subTreePrepare(broadcastStringList.getValue(), pi));
+                return new Tuple2<List<String>, List<ERA.L_B>>(piList, LBList);
             }
         });
         System.out.println("==================SubTree Prepare Finished=======================");
-        JavaRDD<String> resultsRDD = subtreePrepared.map(new Function<Tuple2<List<String>, List<SlavesWorks.L_B>>, String>() {
-            public String call(Tuple2<List<String>, List<SlavesWorks.L_B>> listListTuple2) throws Exception {
-                List<String> piList = listListTuple2._1;
-                List<SlavesWorks.L_B> L_B_List = listListTuple2._2;
-                StringBuilder stringBuilder = new StringBuilder();
+        JavaRDD<String> resultsRDD = subtreePrepared.map(new Function<Tuple2<List<String>, List<ERA.L_B>>, String>() {
+            public String call(Tuple2<List<String>, List<ERA.L_B>> listListTuple2) throws Exception {
+                List<String> piList = listListTuple2._1;//pi列表
+                List<ERA.L_B> L_B_List = listListTuple2._2;//L,B数组
+                StringBuilder partialResult = new StringBuilder();//piList形成子树遍历的结果
                 for (int i = 0; i < piList.size(); i++) {
                     String pi = piList.get(i);
-                    SlavesWorks.L_B lb = L_B_List.get(i);
-                    SlavesWorks.TreeNode root = masterWork.buildSubTree(broadcastStringList.getValue(), lb);
-                    masterWork.splitSubTree(broadcastStringList.getValue(), pi, root);
-                    stringBuilder.append(masterWork.traverseTree(S,root, terminatorFilename));
+                    ERA.L_B lb = L_B_List.get(i);
+                    ERA.TreeNode root = era.buildSubTree(broadcastStringList.getValue(), lb);
+                    era.splitSubTree(broadcastStringList.getValue(), pi, root);
+                    partialResult.append(era.traverseTree(S,root, terminatorFilename));
                 }
-                return stringBuilder.deleteCharAt(stringBuilder.length() - 1).toString();
+                //去掉多余的回车？？
+                return partialResult.deleteCharAt(partialResult.length() - 1).toString();
             }
         });
         resultsRDD.saveAsTextFile(outputURL);

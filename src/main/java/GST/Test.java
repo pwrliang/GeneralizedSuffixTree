@@ -11,7 +11,7 @@ public class Test {
         File folder = new File("D:\\Liang_Projects\\exset\\ex1");
         String[] fileNames = folder.list();
         final Map<Character, String> terminatorFilename = new HashMap<Character, String>();
-        final SlavesWorks masterWorks = new SlavesWorks();
+        final ERA masterWorks = new ERA();
         final List<String> S = new ArrayList<String>();
         for (String filename : fileNames) {
             File txtFile = new File(folder.getPath() + "/" + filename);
@@ -24,29 +24,25 @@ public class Test {
         int range=464;
         int Fm=6;
 
-        final Set<Character> alphabet = SlavesWorks.getAlphabet(S);
+        final Set<Character> alphabet = ERA.getAlphabet(S);
         final List<String> rightResult = SingleVersion.readLocalFileLine(new File("D:\\Liang_Projects\\exset\\res1.txt"));
         Set<Set<String>> setOfVirtualTrees = masterWorks.verticalPartitioning(S, alphabet, Fm);
         List<String> result = new ArrayList<String>();
-        SlavesWorks slavesWorks = new SlavesWorks(range);
+        ERA slavesWorks = new ERA(range);
         for (Set<String> virtualTrees : setOfVirtualTrees) {
             for (String p : virtualTrees) {
-//                if (p.length()==5 && p.startsWith("i") && p.endsWith(" "))
-//                    System.out.println(p);
-                SlavesWorks.L_B lb = slavesWorks.subTreePrepare(S, p);
-                SlavesWorks.TreeNode treeNode = slavesWorks.buildSubTree(S, lb);
+                ERA.L_B lb = slavesWorks.subTreePrepare(S, p);
+                ERA.TreeNode treeNode = slavesWorks.buildSubTree(S, lb);
                 slavesWorks.splitSubTree(S, p, treeNode);
                 String subTree = slavesWorks.traverseTree(S,treeNode, terminatorFilename);
-//                System.out.println("--------"+p+"--------");
-//                System.out.println(subTree);
                 String[] lines = subTree.split("\n");
                 for (String line : lines)
                     result.add(line);
             }
         }
         SingleVersion.sort(result);
-//        for(String line:result)
-//            System.out.println(line);
+        for(String line:result)
+            System.out.println(line);
         if (rightResult.size() != result.size())
             System.out.println(String.format("Fm:%d range:%d %d %d", Fm, range,rightResult.size(),result.size()));
         for (int n = 0; n < rightResult.size(); n++)

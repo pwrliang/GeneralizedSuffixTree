@@ -103,7 +103,7 @@ public class SingleVersion {
         File folder = new File("D:\\Liang_Projects\\exset\\ex2");
         String[] fileNames = folder.list();
         final Map<Character, String> terminatorFilename = new HashMap<Character, String>();
-        final SlavesWorks masterWorks = new SlavesWorks();
+        final ERA masterWorks = new ERA();
         final List<String> S = new ArrayList<String>();
         for (String filename : fileNames) {
             File txtFile = new File(folder.getPath() + "/" + filename);
@@ -113,7 +113,7 @@ public class SingleVersion {
             terminatorFilename.put(terminator, filename);
         }
 
-        final Set<Character> alphabet = SlavesWorks.getAlphabet(S);
+        final Set<Character> alphabet = ERA.getAlphabet(S);
         final List<String> rightResult = readLocalFileLine(new File("D:\\Liang_Projects\\exset\\res2.txt"));
         final ThreadPoolExecutor executorService = (ThreadPoolExecutor) Executors.newFixedThreadPool(50);
         for (int i = 1; i < 100000; i++) {
@@ -130,11 +130,11 @@ public class SingleVersion {
                     }
                     Set<Set<String>> setOfVirtualTrees = masterWorks.verticalPartitioning(S, alphabet, Fm);
                     List<String> result = new ArrayList<String>();
-                    SlavesWorks slavesWorks = new SlavesWorks(range);
+                    ERA slavesWorks = new ERA(range);
                     for (Set<String> virtualTrees : setOfVirtualTrees) {
                         for (String p : virtualTrees) {
-                            SlavesWorks.L_B lb = slavesWorks.subTreePrepare(S, p);
-                            SlavesWorks.TreeNode treeNode = slavesWorks.buildSubTree(S, lb);
+                            ERA.L_B lb = slavesWorks.subTreePrepare(S, p);
+                            ERA.TreeNode treeNode = slavesWorks.buildSubTree(S, lb);
                             slavesWorks.splitSubTree(S, p, treeNode);
                             String subTree = slavesWorks.traverseTree(S,treeNode, terminatorFilename);
                             String[] lines = subTree.split("\n");
