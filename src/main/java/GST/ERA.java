@@ -541,7 +541,7 @@ public class ERA implements Serializable {
                 TreeNode oldV2 = v2.clone();
                 TreeNode vt = v2;
                 vt.end = vt.start + end;//前半部分(v1,vt)字符串
-                vt.suffix_index = 0;
+                vt.suffix_index = -1;
                 v2 = new TreeNode(oldV2.index, vt.end, oldV2.end);//(vt,v2)后半部分字符串
                 //vt原来的左子树交给v2
                 if (vt.leftChild != null) {
@@ -563,23 +563,20 @@ public class ERA implements Serializable {
                 stack.push(vt);
                 depth += vt.end - vt.start;
             }
-            u_ = new TreeNode();
+            //标记(u,u'),遇到终结符则停止
+            //L.get(i)+offset到末尾，存在$0则不要了
+            int[] Li = L.get(i);
+            String sLi = S.get(Li[0]);//第Li[0]个字符串
+            int start = Li[1] + offset;
+            //计算start越界后，则只保留终结符
+//            if (start >= sLi.length())
+//                start = sLi.length() - 1;
+            u_ = new TreeNode(Li[0],start,sLi.length());
             TreeNode next = u;
             while (next.rightSibling != null)
                 next = next.rightSibling;
             next.rightSibling = u_;
             u_.parent = v2.parent;
-            //标记(u,u'),遇到终结符则停止
-            //L.get(i)+offset到末尾，存在$0则不要了
-            int[] Li = L.get(i);
-            String sLi = S.get(Li[0]);//第Li[0]个字符串
-            int end = Li[1] + offset;
-            //计算end越界后，则只保留终结符
-            if (end >= sLi.length())
-                end = sLi.length() - 1;
-            u_.index = Li[0];
-            u_.start = end;
-            u_.end = sLi.length();
             u_.suffix_index = Li[1];
             stack.push(u_);
             depth += u_.end - u_.start;
@@ -655,6 +652,8 @@ public class ERA implements Serializable {
                 node = node.leftChild;
             }
             node = stack.pop();
+            if(node.leftChild==null && node.suffix_index==-1 || node.leftChild!=null && node.suffix_index!=-1)
+                System.err.println("eeeeeeeeeee");
             if (node.leftChild == null) {
                 sb.append(String.format("%d %s:%d\n", stack.size(), terminatorFileName.get(S.get(node.index).charAt(node.end - 1)), node.suffix_index));
             }

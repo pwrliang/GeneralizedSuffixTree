@@ -31,6 +31,8 @@ public class Test {
         ERA slavesWorks = new ERA(range);
         for (Set<String> virtualTrees : setOfVirtualTrees) {
             for (String p : virtualTrees) {
+                if(p.equals("T"))
+                    System.out.println("------------"+p);
                 ERA.L_B lb = slavesWorks.subTreePrepare(S, p);
                 ERA.TreeNode treeNode = slavesWorks.buildSubTree(S, lb);
                 slavesWorks.splitSubTree(S, p, treeNode);
