@@ -2,8 +2,10 @@ package GST;
 
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.serializers.FieldSerializer;
+import com.sun.corba.se.spi.presentation.rmi.IDLNameTranslator;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.*;
+import org.apache.hadoop.io.IOUtils;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
@@ -17,6 +19,7 @@ import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.PairFunction;
 import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.serializer.KryoRegistrator;
+import scala.Char;
 import scala.Tuple2;
 
 //垂直分区
@@ -55,9 +58,10 @@ public class Main {
         FileSystem fileSystem = FileSystem.get(conf);
         BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(fileSystem.open(path)));
         StringBuilder sb = new StringBuilder();
-        String line;
-        while ((line = bufferedReader.readLine()) != null) {
-            sb.append(line);
+        char[] cbuf = new char[4096];
+        int len;
+        while ((len = bufferedReader.read(cbuf)) != -1) {
+            sb.append(cbuf, 0, len);
         }
         bufferedReader.close();
         return sb.toString();
@@ -88,11 +92,23 @@ public class Main {
         }
     }
 
+    static int[] getParameter(String datasetName) {
+        //int[0]=Fm int[1]=range
+        if (datasetName.contains("5000 1000")) {
+            return new int[]{50000, 1000};
+        } else if (datasetName.contains("50000 1000")) {
+            return new int[]{50000, 4000};
+        } else if (datasetName.contains("50000 5000")) {
+            return new int[]{60000, 5000};
+        }
+        return new int[]{50000, 5000};
+    }
+
     public static void main(String[] args) throws IOException, InterruptedException {
         SparkConf sparkConf = new SparkConf().
                 setAppName("Generalized Suffix Tree");
-        sparkConf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer");
-        sparkConf.set("spark.kryo.registrator", ClassRegistrator.class.getName());
+//        sparkConf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer");
+//        sparkConf.set("spark.kryo.registrator", ClassRegistrator.class.getName());
         final JavaSparkContext sc = new JavaSparkContext(sparkConf);
         final String inputURL = args[0];
         final String outputURL = args[1];
@@ -102,15 +118,24 @@ public class Main {
         sc.setCheckpointDir(tmpURL);
 
         //开始读取文本文件
-        List<String> pathList = listFiles(inputURL);
+//        List<String> pathList = listFiles(inputURL);
         Map<Character, String> terminatorFilename = new HashMap<Character, String>();//终结符:文件名
         List<String> S = new ArrayList<String>();
         final ERA era = new ERA(ELASTIC_RANGE);
-        for (String filename : pathList) {
-            String content = readFile(filename);
+//        for (String filename : pathList) {
+//            String content = readFile(filename);
+//            Character terminator = era.nextTerminator();
+//            S.add(content + terminator);
+//            terminatorFilename.put(terminator, filename.substring(filename.lastIndexOf('/') + 1));
+//        }
+        //key filename value content
+        JavaPairRDD<String, String> inputData = sc.wholeTextFiles(inputURL);//read whole folder
+        Map<String, String> dataSet = inputData.collectAsMap();//key file path, value content
+        for (String path : dataSet.keySet()) {
+            String filename = new Path(path).getName();
             Character terminator = era.nextTerminator();
-            S.add(content + terminator);
-            terminatorFilename.put(terminator, filename.substring(filename.lastIndexOf('/') + 1));
+            S.add(dataSet.get(path) + terminator);//append terminator to the end of text
+            terminatorFilename.put(terminator, filename);
         }
 
         Set<Character> alphabet = ERA.getAlphabet(S);//扫描串获得字母表
@@ -120,7 +145,7 @@ public class Main {
         //分配任务
         final Broadcast<List<String>> broadcastStringList = sc.broadcast(S);
         final Broadcast<Map<Character, String>> broadcasterTerminatorFilename = sc.broadcast(terminatorFilename);
-        JavaRDD<Set<String>> vtRDD = sc.parallelize(new ArrayList<Set<String>>(setOfVirtualTrees),100);
+        JavaRDD<Set<String>> vtRDD = sc.parallelize(new ArrayList<Set<String>>(setOfVirtualTrees));
         JavaPairRDD<List<String>, List<ERA.L_B>> subtreePrepared = vtRDD.mapToPair(new PairFunction<Set<String>, List<String>, List<ERA.L_B>>() {
             public Tuple2<List<String>, List<ERA.L_B>> call(Set<String> strings) throws Exception {
                 List<String> piList = new ArrayList<String>(strings);//不能直接用Set，因为不保证有序
