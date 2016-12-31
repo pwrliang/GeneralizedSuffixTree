@@ -117,17 +117,10 @@ public class Main {
         final int ELASTIC_RANGE = Integer.parseInt(args[4]);
         sc.setCheckpointDir(tmpURL);
 
-        //开始读取文本文件
-//        List<String> pathList = listFiles(inputURL);
-        Map<Character, String> terminatorFilename = new HashMap<Character, String>();//终结符:文件名
+        final Map<Character, String> terminatorFilename = new HashMap<Character, String>();//终结符:文件名
         List<String> S = new ArrayList<String>();
         final ERA era = new ERA(ELASTIC_RANGE);
-//        for (String filename : pathList) {
-//            String content = readFile(filename);
-//            Character terminator = era.nextTerminator();
-//            S.add(content + terminator);
-//            terminatorFilename.put(terminator, filename.substring(filename.lastIndexOf('/') + 1));
-//        }
+        //开始读取文本文件
         //key filename value content
         JavaPairRDD<String, String> inputData = sc.wholeTextFiles(inputURL);//read whole folder
         Map<String, String> dataSet = inputData.collectAsMap();//key file path, value content
@@ -144,33 +137,30 @@ public class Main {
         System.out.println("==================Vertical Partition Finished setOfVirtualTrees:" + setOfVirtualTrees.size() + "================");
         //分配任务
         final Broadcast<List<String>> broadcastStringList = sc.broadcast(S);
-        final Broadcast<Map<Character, String>> broadcasterTerminatorFilename = sc.broadcast(terminatorFilename);
+//        final Broadcast<Map<Character, String>> broadcasterTerminatorFilename = sc.broadcast(terminatorFilename);
         JavaRDD<Set<String>> vtRDD = sc.parallelize(new ArrayList<Set<String>>(setOfVirtualTrees));
-        JavaPairRDD<List<String>, List<ERA.L_B>> subtreePrepared = vtRDD.mapToPair(new PairFunction<Set<String>, List<String>, List<ERA.L_B>>() {
-            public Tuple2<List<String>, List<ERA.L_B>> call(Set<String> strings) throws Exception {
-                List<String> piList = new ArrayList<String>(strings);//不能直接用Set，因为不保证有序
-                List<ERA.L_B> LBList = new ArrayList<ERA.L_B>();
-                for (String pi : piList)
-                    LBList.add(era.subTreePrepare(broadcastStringList.getValue(), pi));
-                return new Tuple2<List<String>, List<ERA.L_B>>(piList, LBList);
+        JavaRDD<Map<String, ERA.L_B>> subtreePrepared = vtRDD.map(new Function<Set<String>, Map<String, ERA.L_B>>() {
+            public Map<String, ERA.L_B> call(Set<String> input) throws Exception {
+                List<String> mainString = broadcastStringList.getValue();
+                Map<String, ERA.L_B> piLB = new HashMap<String, ERA.L_B>();
+                for (String pi : input)
+                    piLB.put(pi, era.subTreePrepare(mainString, pi));
+                return piLB;
             }
         });
         subtreePrepared.checkpoint();
-        System.out.println("==================SubTree Prepare Finished=======================");
-        JavaRDD<String> resultsRDD = subtreePrepared.map(new Function<Tuple2<List<String>, List<ERA.L_B>>, String>() {
-            public String call(Tuple2<List<String>, List<ERA.L_B>> listListTuple2) throws Exception {
-                List<String> piList = listListTuple2._1;//pi列表
-                List<ERA.L_B> L_B_List = listListTuple2._2;//L,B数组
+        JavaRDD<String> resultsRDD = subtreePrepared.map(new Function<Map<String, ERA.L_B>, String>() {
+            public String call(Map<String, ERA.L_B> input) throws Exception {
+                List<String> mainString = broadcastStringList.getValue();
                 StringBuilder partialResult = new StringBuilder();//piList形成子树遍历的结果
-                for (int i = 0; i < piList.size(); i++) {
-                    String pi = piList.get(i);
-                    ERA.L_B lb = L_B_List.get(i);
-                    ERA.TreeNode root = era.buildSubTree(broadcastStringList.getValue(), lb);
-                    era.splitSubTree(broadcastStringList.getValue(), pi, root);
-                    partialResult.append(era.traverseTree(broadcastStringList.getValue(), root, broadcasterTerminatorFilename.getValue()));
+                for (String pi : input.keySet()) {
+                    ERA.L_B lb = input.get(pi);
+                    ERA.TreeNode root = era.buildSubTree(mainString, lb);
+                    era.splitSubTree(mainString, pi, root);
+                    partialResult.append(era.traverseTree(mainString, root, terminatorFilename));
                 }
-                //去掉多余的回车？？
-                return partialResult.deleteCharAt(partialResult.length() - 1).toString();
+                partialResult.deleteCharAt(partialResult.length() - 1);
+                return partialResult.toString();
             }
         });
         resultsRDD.checkpoint();
