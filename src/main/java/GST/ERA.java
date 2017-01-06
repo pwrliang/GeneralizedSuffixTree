@@ -65,8 +65,6 @@ public class ERA implements Serializable {
     private static final char SPLITTER_INSERTION = 57001;//拆分并插入叶节点
     private static final char SPLITTER = 57002;//只拆分，不插入叶节点
 
-    private int ELASTIC_RANGE;//弹性范围
-
     /**
      * 将内容写入HDFS中
      *
@@ -89,10 +87,6 @@ public class ERA implements Serializable {
     ERA() {
     }
 
-    ERA(int ELASTIC_RANGE) {
-        this.ELASTIC_RANGE = ELASTIC_RANGE;
-    }
-
     /**
      * 判断字符是否为终结符
      *
@@ -113,8 +107,14 @@ public class ERA implements Serializable {
     /**
      * 返回算法参数-弹性范围
      */
-    private int getRangeOfSymbols() {
-        return ELASTIC_RANGE;
+    private int getRangeOfSymbols(int L_) {
+        int bufferSize = 512 * 1024 * 1024;
+        if (L_ <= 0)
+            L_ = 1;
+        int range = bufferSize / L_;
+        if (range == 0)
+            return 1000;
+        return range;
     }
 
     /**
@@ -326,6 +326,8 @@ public class ERA implements Serializable {
             }
         }
 
+        int L_ = RPLList.size();
+
         for (int i = 0; i < RPLList.size(); i++) {
             B.add(0);//the value of B[i] is 0 means B[i] is undefined
             I.add(i);
@@ -355,7 +357,7 @@ public class ERA implements Serializable {
             if (defined)
                 break;
 
-            int range = getRangeOfSymbols();//line 9
+            int range = getRangeOfSymbols(L_);//line 9
             for (int i = 0; i < RPLList.size(); i++) {//line 10
                 if (!I_done.get(I.get(i))) {
                     //R[I[i]]=READRANGE(S,L[I[i]]+start,range)
@@ -476,10 +478,14 @@ public class ERA implements Serializable {
                         if (B.get(i - 1) > 0 || i == 1) {
                             I_done.put(I.get(RPLList.get(i - 1).P), true);
                             A_done.set(i - 1, true);
+                            RPLList.get(i - 1).R = null;
+                            L_--;
                         }
                         if (i == RPLList.size() - 1 || B.get(i + 1) > 0) {
                             I_done.put(I.get(RPLList.get(i).P), true);
                             A_done.set(i, true);
+                            RPLList.get(i).R = null;
+                            L_--;
                         }
                     }
                 }

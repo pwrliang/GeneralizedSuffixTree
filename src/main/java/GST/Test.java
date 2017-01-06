@@ -28,7 +28,7 @@ public class Test {
         final List<String> rightResult = SingleVersion.readLocalFileLine(new File("D:\\Liang_Projects\\exset\\res1.txt"));
         Set<Set<String>> setOfVirtualTrees = masterWorks.verticalPartitioning(S, alphabet, Fm);
         List<String> result = new ArrayList<String>();
-        ERA slavesWorks = new ERA(range);
+        ERA slavesWorks = new ERA();
         for (Set<String> virtualTrees : setOfVirtualTrees) {
             for (String p : virtualTrees) {
                 if(p.equals("T"))

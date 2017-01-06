@@ -19,6 +19,7 @@ import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.PairFunction;
 import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.serializer.KryoRegistrator;
+import org.apache.spark.storage.StorageLevel;
 import scala.Char;
 import scala.Tuple2;
 
@@ -114,12 +115,11 @@ public class Main {
         final String outputURL = args[1];
         final String tmpURL = args[2];
         final int Fm = Integer.parseInt(args[3]);
-        final int ELASTIC_RANGE = Integer.parseInt(args[4]);
         sc.setCheckpointDir(tmpURL);
 
         final Map<Character, String> terminatorFilename = new HashMap<Character, String>();//终结符:文件名
         List<String> S = new ArrayList<String>();
-        final ERA era = new ERA(ELASTIC_RANGE);
+        final ERA era = new ERA();
         //开始读取文本文件
         //key filename value content
         JavaPairRDD<String, String> inputData = sc.wholeTextFiles(inputURL);//read whole folder
@@ -149,20 +149,57 @@ public class Main {
             }
         });
         subtreePrepared.checkpoint();
-        JavaRDD<String> resultsRDD = subtreePrepared.map(new Function<Map<String, ERA.L_B>, String>() {
-            public String call(Map<String, ERA.L_B> input) throws Exception {
+        //build subTrees
+        JavaRDD<Map<String, ERA.TreeNode>> buildTrees = subtreePrepared.map(new Function<Map<String, ERA.L_B>, Map<String, ERA.TreeNode>>() {
+            public Map<String, ERA.TreeNode> call(Map<String, ERA.L_B> input) throws Exception {
                 List<String> mainString = broadcastStringList.getValue();
-                StringBuilder partialResult = new StringBuilder();//piList形成子树遍历的结果
+                Map<String, ERA.TreeNode> result = new HashMap<String, ERA.TreeNode>();
                 for (String pi : input.keySet()) {
                     ERA.L_B lb = input.get(pi);
                     ERA.TreeNode root = era.buildSubTree(mainString, lb);
-                    era.splitSubTree(mainString, pi, root);
-                    partialResult.append(era.traverseTree(mainString, root, terminatorFilename));
+                    result.put(pi, root);
                 }
-                partialResult.deleteCharAt(partialResult.length() - 1);
-                return partialResult.toString();
+                return result;
             }
         });
+        buildTrees.checkpoint();
+        JavaRDD<List<ERA.TreeNode>> splitTrees = buildTrees.map(new Function<Map<String, ERA.TreeNode>, List<ERA.TreeNode>>() {
+            public List<ERA.TreeNode> call(Map<String, ERA.TreeNode> input) throws Exception {
+                List<String> mainString = broadcastStringList.getValue();
+                List<ERA.TreeNode> result = new ArrayList<ERA.TreeNode>();
+                for (String pi : input.keySet()) {
+                    ERA.TreeNode root = input.get(pi);
+                    era.splitSubTree(mainString, pi, root);
+                    result.add(root);
+                }
+                return result;
+            }
+        });
+        splitTrees.checkpoint();
+        JavaRDD<String> resultsRDD = splitTrees.map(new Function<List<ERA.TreeNode>, String>() {
+            public String call(List<ERA.TreeNode> input) throws Exception {
+                List<String> mainString = broadcastStringList.getValue();
+                StringBuilder partialResult = new StringBuilder();
+                for (ERA.TreeNode root : input) {
+                    partialResult.append(era.traverseTree(mainString, root, terminatorFilename));
+                }
+                return partialResult.deleteCharAt(partialResult.length() - 1).toString();
+            }
+        });
+//        JavaRDD<String> resultsRDD = subtreePrepared.map(new Function<Map<String, ERA.L_B>, String>() {
+//            public String call(Map<String, ERA.L_B> input) throws Exception {
+//                List<String> mainString = broadcastStringList.getValue();
+//                StringBuilder partialResult = new StringBuilder();//piList形成子树遍历的结果
+//                for (String pi : input.keySet()) {
+//                    ERA.L_B lb = input.get(pi);
+//                    ERA.TreeNode root = era.buildSubTree(mainString, lb);
+//                    era.splitSubTree(mainString, pi, root);
+//                    partialResult.append(era.traverseTree(mainString, root, terminatorFilename));
+//                }
+//                partialResult.deleteCharAt(partialResult.length() - 1);
+//                return partialResult.toString();
+//            }
+//        });
         resultsRDD.checkpoint();
         resultsRDD.saveAsTextFile(outputURL);
         System.out.println("=====================Tasks Done============");

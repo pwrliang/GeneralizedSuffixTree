@@ -120,17 +120,13 @@ public class SingleVersion {
             final int finalI = i;
             executorService.execute(new Runnable() {
                 public void run() {
-                    int range = 0;
                     int Fm = 0;
-                    while (range == 0) {
-                        range = new Random().nextInt(1000);
-                    }
                     while (Fm == 0) {
                         Fm = new Random().nextInt(100);
                     }
                     Set<Set<String>> setOfVirtualTrees = masterWorks.verticalPartitioning(S, alphabet, Fm);
                     List<String> result = new ArrayList<String>();
-                    ERA slavesWorks = new ERA(range);
+                    ERA slavesWorks = new ERA();
                     for (Set<String> virtualTrees : setOfVirtualTrees) {
                         for (String p : virtualTrees) {
                             ERA.L_B lb = slavesWorks.subTreePrepare(S, p);
@@ -145,10 +141,10 @@ public class SingleVersion {
                     sort(result);
 
                     if (rightResult.size() != result.size())
-                        System.out.println(String.format("Fm:%d range:%d %d %d", Fm, range, rightResult.size(), result.size()));
+                        System.out.println(String.format("Fm:%d size:%d %d", Fm, rightResult.size(), result.size()));
                     for (int n = 0; n < rightResult.size(); n++)
                         if (!rightResult.get(n).equals(result.get(n))) {
-                            System.out.println(String.format("Fm:%d range:%d", Fm, range));
+                            System.out.println(String.format("Fm:%d", Fm));
                             System.out.println(rightResult.get(n) + " " + result.get(n));
                             System.exit(0);
                         }
