@@ -113,9 +113,7 @@ public class Main {
         final JavaSparkContext sc = new JavaSparkContext(sparkConf);
         final String inputURL = args[0];
         final String outputURL = args[1];
-        final String tmpURL = args[2];
         final int Fm = Integer.parseInt(args[3]);
-        sc.setCheckpointDir(tmpURL);
 
         final Map<Character, String> terminatorFilename = new HashMap<Character, String>();//终结符:文件名
         List<String> S = new ArrayList<String>();
@@ -138,7 +136,12 @@ public class Main {
         //分配任务
         final Broadcast<List<String>> broadcastStringList = sc.broadcast(S);
 //        final Broadcast<Map<Character, String>> broadcasterTerminatorFilename = sc.broadcast(terminatorFilename);
-        JavaRDD<Set<String>> vtRDD = sc.parallelize(new ArrayList<Set<String>>(setOfVirtualTrees));
+        int partitions = sc.defaultParallelism() * 4;
+//        if (setOfVirtualTrees.size() / 4 > partitions)
+//            partitions = setOfVirtualTrees.size() / 4;
+
+        partitions=448;
+        JavaRDD<Set<String>> vtRDD = sc.parallelize(new ArrayList<Set<String>>(setOfVirtualTrees), partitions);
         JavaRDD<Map<String, ERA.L_B>> subtreePrepared = vtRDD.map(new Function<Set<String>, Map<String, ERA.L_B>>() {
             public Map<String, ERA.L_B> call(Set<String> input) throws Exception {
                 List<String> mainString = broadcastStringList.getValue();
@@ -148,35 +151,21 @@ public class Main {
                 return piLB;
             }
         });
-        subtreePrepared.checkpoint();
         //build subTrees
-        JavaRDD<Map<String, ERA.TreeNode>> buildTrees = subtreePrepared.map(new Function<Map<String, ERA.L_B>, Map<String, ERA.TreeNode>>() {
-            public Map<String, ERA.TreeNode> call(Map<String, ERA.L_B> input) throws Exception {
-                List<String> mainString = broadcastStringList.getValue();
-                Map<String, ERA.TreeNode> result = new HashMap<String, ERA.TreeNode>();
-                for (String pi : input.keySet()) {
-                    ERA.L_B lb = input.get(pi);
-                    ERA.TreeNode root = era.buildSubTree(mainString, lb);
-                    result.put(pi, root);
-                }
-                return result;
-            }
-        });
-        buildTrees.checkpoint();
-        JavaRDD<List<ERA.TreeNode>> splitTrees = buildTrees.map(new Function<Map<String, ERA.TreeNode>, List<ERA.TreeNode>>() {
-            public List<ERA.TreeNode> call(Map<String, ERA.TreeNode> input) throws Exception {
+        JavaRDD<List<ERA.TreeNode>> buildTrees = subtreePrepared.map(new Function<Map<String, ERA.L_B>, List<ERA.TreeNode>>() {
+            public List<ERA.TreeNode> call(Map<String, ERA.L_B> input) throws Exception {
                 List<String> mainString = broadcastStringList.getValue();
                 List<ERA.TreeNode> result = new ArrayList<ERA.TreeNode>();
                 for (String pi : input.keySet()) {
-                    ERA.TreeNode root = input.get(pi);
+                    ERA.L_B lb = input.get(pi);
+                    ERA.TreeNode root = era.buildSubTree(mainString, lb);
                     era.splitSubTree(mainString, pi, root);
                     result.add(root);
                 }
                 return result;
             }
         });
-        splitTrees.checkpoint();
-        JavaRDD<String> resultsRDD = splitTrees.map(new Function<List<ERA.TreeNode>, String>() {
+        JavaRDD<String> resultsRDD = buildTrees.map(new Function<List<ERA.TreeNode>, String>() {
             public String call(List<ERA.TreeNode> input) throws Exception {
                 List<String> mainString = broadcastStringList.getValue();
                 StringBuilder partialResult = new StringBuilder();
@@ -186,6 +175,8 @@ public class Main {
                 return partialResult.deleteCharAt(partialResult.length() - 1).toString();
             }
         });
+        resultsRDD.saveAsTextFile(outputURL);
+        System.out.println("=====================Tasks Done============");
 //        JavaRDD<String> resultsRDD = subtreePrepared.map(new Function<Map<String, ERA.L_B>, String>() {
 //            public String call(Map<String, ERA.L_B> input) throws Exception {
 //                List<String> mainString = broadcastStringList.getValue();
@@ -200,8 +191,5 @@ public class Main {
 //                return partialResult.toString();
 //            }
 //        });
-        resultsRDD.checkpoint();
-        resultsRDD.saveAsTextFile(outputURL);
-        System.out.println("=====================Tasks Done============");
     }
 }
