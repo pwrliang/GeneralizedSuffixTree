@@ -8,7 +8,7 @@ import java.util.*;
  */
 public class Test {
     public static void main(String[] args) {
-        File folder = new File("D:\\Liang_Projects\\exset\\ex1");
+        File folder = new File("/home/gengl/Desktop/gengl/Documents/exset/ex0");
         String[] fileNames = folder.list();
         final Map<Character, String> terminatorFilename = new HashMap<Character, String>();
         final ERA masterWorks = new ERA();
@@ -21,11 +21,11 @@ public class Test {
             terminatorFilename.put(terminator, filename);
         }
 
-        int range=464;
-        int Fm=6;
+        int range=1;
+        int Fm=1;
 
         final Set<Character> alphabet = ERA.getAlphabet(S);
-        final List<String> rightResult = SingleVersion.readLocalFileLine(new File("D:\\Liang_Projects\\exset\\res1.txt"));
+        final List<String> rightResult = SingleVersion.readLocalFileLine(new File("/home/gengl/Desktop/gengl/Documents/exset/res0.txt"));
         Set<Set<String>> setOfVirtualTrees = masterWorks.verticalPartitioning(S, alphabet, Fm);
         List<String> result = new ArrayList<String>();
         ERA slavesWorks = new ERA();
