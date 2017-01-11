@@ -108,13 +108,12 @@ public class ERA implements Serializable {
      * 返回算法参数-弹性范围
      */
     private int getRangeOfSymbols(int L_) {
-//        int bufferSize = 1 * 1024 * 1024;
-//        if (L_ <= 0)
-//            L_ = 1;
-//        int range = bufferSize / L_;
-//        if (range == 0)
-//            return 1000;
-        int range=new Random().nextInt(10);
+        int bufferSize = 256 * 1024 * 1024;
+        if (L_ <= 0)
+            L_ = 1;
+        int range = bufferSize / L_;
+        if (range == 0)
+            return 1000;
         return range;
     }
 
