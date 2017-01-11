@@ -50,41 +50,6 @@ import scala.Tuple2;
  * This is the enter point of program
  */
 public class Main {
-    private static String readFile(String url) throws IOException {
-        Path path = new Path(url);
-        URI uri = path.toUri();
-        String hdfsPath = String.format("%s://%s:%d", uri.getScheme(), uri.getHost(), uri.getPort());
-        Configuration conf = new Configuration();
-        conf.set("fs.defaultFS", hdfsPath);//hdfs://master:9000
-        FileSystem fileSystem = FileSystem.get(conf);
-        BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(fileSystem.open(path)));
-        StringBuilder sb = new StringBuilder();
-        char[] cbuf = new char[4096];
-        int len;
-        while ((len = bufferedReader.read(cbuf)) != -1) {
-            sb.append(cbuf, 0, len);
-        }
-        bufferedReader.close();
-        return sb.toString();
-    }
-
-    private static List<String> listFiles(String url) throws IOException {
-        Path path = new Path(url);
-        URI uri = path.toUri();
-        String hdfsPath = String.format("%s://%s:%d", uri.getScheme(), uri.getHost(), uri.getPort());
-        Configuration conf = new Configuration();
-        conf.set("fs.defaultFS", hdfsPath);
-
-        FileSystem fileSystem = FileSystem.get(conf);
-        RemoteIterator<LocatedFileStatus> files = fileSystem.listFiles(path, true);
-        List<String> pathList = new ArrayList<String>();
-        while (files.hasNext()) {
-            LocatedFileStatus file = files.next();
-            pathList.add(file.getPath().toString());
-        }
-        return pathList;
-    }
-
     public static class ClassRegistrator implements KryoRegistrator {
         public void registerClasses(Kryo kryo) {
             kryo.register(ERA.L_B.class, new FieldSerializer(kryo, ERA.class));
@@ -115,14 +80,15 @@ public class Main {
         final String outputURL = args[1];
         final String tmpURL = args[2];
         final int Fm = Integer.parseInt(args[3]);
-        final Map<Character, String> terminatorFilename = new HashMap<Character, String>();//终结符:文件名
+        Map<Character, String> terminatorFilename = new HashMap<Character, String>();//终结符:文件名
         List<String> S = new ArrayList<String>();
-        final ERA era = new ERA();
         sc.setCheckpointDir(tmpURL);
+
         //开始读取文本文件
         //key filename value content
         JavaPairRDD<String, String> inputData = sc.wholeTextFiles(inputURL);//read whole folder
         Map<String, String> dataSet = inputData.collectAsMap();//key file path, value content
+        final ERA era = new ERA();
         for (String path : dataSet.keySet()) {
             String filename = new Path(path).getName();
             Character terminator = era.nextTerminator();
@@ -136,11 +102,8 @@ public class Main {
         System.out.println("==================Vertical Partition Finished setOfVirtualTrees:" + setOfVirtualTrees.size() + "================");
         //分配任务
         final Broadcast<List<String>> broadcastStringList = sc.broadcast(S);
-//        final Broadcast<Map<Character, String>> broadcasterTerminatorFilename = sc.broadcast(terminatorFilename);
-        int partitions = sc.defaultParallelism() * 4;
-        partitions = setOfVirtualTrees.size();
-//        if (setOfVirtualTrees.size() / 4 > partitions)
-//            partitions = setOfVirtualTrees.size() / 4;
+        final Broadcast<Map<Character, String>> broadcasterTerminatorFilename = sc.broadcast(terminatorFilename);
+        int partitions = setOfVirtualTrees.size();
 
         JavaRDD<Set<String>> vtRDD = sc.parallelize(new ArrayList<Set<String>>(setOfVirtualTrees), partitions);
         JavaRDD<Map<String, ERA.L_B>> subtreePrepared = vtRDD.map(new Function<Set<String>, Map<String, ERA.L_B>>() {
@@ -171,6 +134,7 @@ public class Main {
         JavaRDD<String> resultsRDD = buildTrees.map(new Function<List<ERA.TreeNode>, String>() {
             public String call(List<ERA.TreeNode> input) throws Exception {
                 List<String> mainString = broadcastStringList.getValue();
+                Map<Character, String> terminatorFilename = broadcasterTerminatorFilename.value();
                 StringBuilder partialResult = new StringBuilder();
                 for (ERA.TreeNode root : input) {
                     partialResult.append(era.traverseTree(mainString, root, terminatorFilename));
@@ -181,19 +145,5 @@ public class Main {
         resultsRDD.checkpoint();
         resultsRDD.saveAsTextFile(outputURL);
         System.out.println("=====================Tasks Done============");
-//        JavaRDD<String> resultsRDD = subtreePrepared.map(new Function<Map<String, ERA.L_B>, String>() {
-//            public String call(Map<String, ERA.L_B> input) throws Exception {
-//                List<String> mainString = broadcastStringList.getValue();
-//                StringBuilder partialResult = new StringBuilder();//piList形成子树遍历的结果
-//                for (String pi : input.keySet()) {
-//                    ERA.L_B lb = input.get(pi);
-//                    ERA.TreeNode root = era.buildSubTree(mainString, lb);
-//                    era.splitSubTree(mainString, pi, root);
-//                    partialResult.append(era.traverseTree(mainString, root, terminatorFilename));
-//                }
-//                partialResult.deleteCharAt(partialResult.length() - 1);
-//                return partialResult.toString();
-//            }
-//        });
     }
 }
