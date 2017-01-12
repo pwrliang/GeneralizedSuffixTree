@@ -1,11 +1,6 @@
 package GST;
 
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
-
 import java.io.*;
-import java.net.URI;
 import java.util.*;
 
 /**
@@ -65,24 +60,6 @@ public class ERA implements Serializable {
     private static final char SPLITTER_INSERTION = 57001;//拆分并插入叶节点
     private static final char SPLITTER = 57002;//只拆分，不插入叶节点
 
-    /**
-     * 将内容写入HDFS中
-     *
-     * @param outputURL HDFS的URL
-     * @param filename  文件名
-     * @param content   内容
-     */
-    void writeToFile(String outputURL, String filename, String content) throws IOException {
-        Path path = new Path(outputURL + "/" + filename);
-        URI uri = path.toUri();
-        String hdfsPath = String.format("%s://%s:%d", uri.getScheme(), uri.getHost(), uri.getPort());
-        Configuration conf = new Configuration();
-        conf.set("fs.defaultFS", hdfsPath);//hdfs://master:9000
-        FileSystem fileSystem = FileSystem.get(conf);
-        BufferedWriter bufferedWriter = new BufferedWriter(new OutputStreamWriter(fileSystem.create(path)));
-        bufferedWriter.write(content);
-        bufferedWriter.close();
-    }
 
     ERA() {
     }
@@ -540,9 +517,6 @@ public class ERA implements Serializable {
                 //寻找根节点到v1经历了几个字符
                 int before = v1Length.get(v1);
                 int end = offset - before;//跳过根节点到v1这么长的字符
-//                if (v2.start + end > v2.end) {
-//                    System.err.println("error");
-//                }
 
                 TreeNode oldV2 = v2.clone();
                 TreeNode vt = v2;
@@ -575,8 +549,6 @@ public class ERA implements Serializable {
             String sLi = S.get(Li[0]);//第Li[0]个字符串
             int start = Li[1] + offset;
             //计算start越界后，则只保留终结符
-//            if (start >= sLi.length())
-//                start = sLi.length() - 1;
             u_ = new TreeNode(Li[0], start, sLi.length());
             TreeNode next = u;
             while (next.rightSibling != null)
