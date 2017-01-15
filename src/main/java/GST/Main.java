@@ -74,16 +74,19 @@ public class Main {
         final String inputURL = args[0];
         final String outputURL = args[1];
         final String tmpURL = args[2];
-        int Fm = Integer.parseInt(args[3]);
+        int Fm = -1;
+        if (args.length == 4)
+            Fm = Integer.parseInt(args[3]);
+
         SparkConf sparkConf = new SparkConf().
-                setAppName(inputURL.split("/")[inputURL.split("/").length - 1]+" Fm:" + Fm);
+                setAppName(inputURL.split("/")[inputURL.split("/").length - 1] + " Fm:" + Fm);
         sparkConf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer");
         sparkConf.set("spark.kryo.registrator", ClassRegistrator.class.getName());
         final JavaSparkContext sc = new JavaSparkContext(sparkConf);
 
 
-        Map<Character, String> terminatorFilename = new HashMap<Character, String>();//终结符:文件名
-        List<String> S = new ArrayList<String>();
+        final Map<Character, String> terminatorFilename = new HashMap<Character, String>();//终结符:文件名
+        final List<String> S = new ArrayList<String>();
         sc.setCheckpointDir(tmpURL);
 
         //开始读取文本文件
@@ -101,55 +104,73 @@ public class Main {
         int lenthForAll = 0;
         for (String s : S)
             lenthForAll += s.length();
-//        Fm = lenthForAll / 1000;
+        int partitions = sc.defaultParallelism() * 4;
+
+        if (Fm == -1)
+            Fm = lenthForAll / partitions;
+
         System.out.println("Fm:" + Fm + " AllLen:" + lenthForAll);
         Set<Character> alphabet = ERA.getAlphabet(S);//扫描串获得字母表
         long start = System.currentTimeMillis();
-        System.out.println("==================Start Vertical Partition version 1.12-1=======================");
+        System.out.println("==================Start Vertical Partition version 1.15-1=======================");
         Set<Set<String>> setOfVirtualTrees = era.verticalPartitioning(S, alphabet, Fm);//开始垂直分区
-        System.out.println("==================Vertical Partition Finished" + (System.currentTimeMillis() - start) / 1000 + " setOfVirtualTrees:" + setOfVirtualTrees.size() + "================");
+        System.out.println("==================Vertical Partition Finished time:" + (System.currentTimeMillis() - start) / 1000 + " setOfVirtualTrees:" + setOfVirtualTrees.size() + "================");
         //分配任务
         final Broadcast<List<String>> broadcastStringList = sc.broadcast(S);
         final Broadcast<Map<Character, String>> broadcasterTerminatorFilename = sc.broadcast(terminatorFilename);
-        int partitions = sc.defaultParallelism() * 4;
 
-        JavaRDD<Set<String>> vtRDD = sc.parallelize(new ArrayList<Set<String>>(setOfVirtualTrees), partitions);
-        JavaRDD<Map<String, ERA.L_B>> subtreePrepared = vtRDD.map(new Function<Set<String>, Map<String, ERA.L_B>>() {
-            public Map<String, ERA.L_B> call(Set<String> input) throws Exception {
-                List<String> mainString = broadcastStringList.getValue();
-                Map<String, ERA.L_B> piLB = new HashMap<String, ERA.L_B>();
-                for (String pi : input)
-                    piLB.put(pi, era.subTreePrepare(mainString, pi));
-                return piLB;
-            }
-        });
-        subtreePrepared.checkpoint();
-        //build subTrees
-        JavaRDD<List<ERA.TreeNode>> buildTrees = subtreePrepared.map(new Function<Map<String, ERA.L_B>, List<ERA.TreeNode>>() {
-            public List<ERA.TreeNode> call(Map<String, ERA.L_B> input) throws Exception {
-                List<String> mainString = broadcastStringList.getValue();
-                List<ERA.TreeNode> result = new ArrayList<ERA.TreeNode>();
-                for (String pi : input.keySet()) {
-                    ERA.L_B lb = input.get(pi);
+        final JavaRDD<Set<String>> vtRDD = sc.parallelize(new ArrayList<Set<String>>(setOfVirtualTrees), partitions);
+        JavaRDD<String> resultsRDD = vtRDD.map(new Function<Set<String>, String>() {
+            public String call(Set<String> input) throws Exception {
+                List<String> mainString = S;//broadcastStringList.value();
+//                Map<Character, String> terminatorFilename = broadcasterTerminatorFilename.value();
+                StringBuilder partialResult = new StringBuilder();
+                for (String pi : input) {
+                    ERA.L_B lb = era.subTreePrepare(mainString, pi);
                     ERA.TreeNode root = era.buildSubTree(mainString, lb);
                     era.splitSubTree(mainString, pi, root);
-                    result.add(root);
-                }
-                return result;
-            }
-        });
-        buildTrees.checkpoint();
-        JavaRDD<String> resultsRDD = buildTrees.map(new Function<List<ERA.TreeNode>, String>() {
-            public String call(List<ERA.TreeNode> input) throws Exception {
-                List<String> mainString = broadcastStringList.getValue();
-                Map<Character, String> terminatorFilename = broadcasterTerminatorFilename.value();
-                StringBuilder partialResult = new StringBuilder();
-                for (ERA.TreeNode root : input) {
                     partialResult.append(era.traverseTree(mainString, root, terminatorFilename));
                 }
+                //get rid of blank line
                 return partialResult.deleteCharAt(partialResult.length() - 1).toString();
             }
         });
+//        JavaRDD<Map<String, ERA.L_B>> subtreePrepared = vtRDD.map(new Function<Set<String>, Map<String, ERA.L_B>>() {
+//            public Map<String, ERA.L_B> call(Set<String> input) throws Exception {
+//                List<String> mainString = S;//broadcastStringList.getValue();
+//                Map<String, ERA.L_B> piLB = new HashMap<String, ERA.L_B>();
+//                for (String pi : input)
+//                    piLB.put(pi, era.subTreePrepare(mainString, pi));
+//                return piLB;
+//            }
+//        });
+//        subtreePrepared.checkpoint();
+//        //build subTrees
+//        JavaRDD<List<ERA.TreeNode>> buildTrees = subtreePrepared.map(new Function<Map<String, ERA.L_B>, List<ERA.TreeNode>>() {
+//            public List<ERA.TreeNode> call(Map<String, ERA.L_B> input) throws Exception {
+//                List<String> mainString = S;//broadcastStringList.getValue();
+//                List<ERA.TreeNode> result = new ArrayList<ERA.TreeNode>();
+//                for (String pi : input.keySet()) {
+//                    ERA.L_B lb = input.get(pi);
+//                    ERA.TreeNode root = era.buildSubTree(mainString, lb);
+//                    era.splitSubTree(mainString, pi, root);
+//                    result.add(root);
+//                }
+//                return result;
+//            }
+//        });
+//        buildTrees.checkpoint();
+//        JavaRDD<String> resultsRDD = buildTrees.map(new Function<List<ERA.TreeNode>, String>() {
+//            public String call(List<ERA.TreeNode> input) throws Exception {
+//                List<String> mainString = S;//broadcastStringList.getValue();
+////                Map<Character, String> terminatorFilename = broadcasterTerminatorFilename.value();
+//                StringBuilder partialResult = new StringBuilder();
+//                for (ERA.TreeNode root : input) {
+//                    partialResult.append(era.traverseTree(mainString, root, terminatorFilename));
+//                }
+//                return partialResult.deleteCharAt(partialResult.length() - 1).toString();
+//            }
+//        });
         resultsRDD.checkpoint();
         resultsRDD.saveAsTextFile(outputURL);
         System.out.println("=====================Tasks Done============");
