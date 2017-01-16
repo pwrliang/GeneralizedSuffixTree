@@ -85,7 +85,7 @@ public class ERA implements Serializable {
      * 返回算法参数-弹性范围
      */
     private int getRangeOfSymbols(int L_) {
-        int bufferSize = 1024 * 1024 * 1024;
+        int bufferSize = 512 * 1024 * 1024;
         if (L_ <= 0)
             L_ = 1;
         int range = bufferSize / L_;
@@ -346,9 +346,10 @@ public class ERA implements Serializable {
                     int[] L = RPLList.get(I[i]).L;
                     int begin = L[1] + start;
                     int end = begin + range;
-                    if (end > S.get(L[0]).length())
-                        end = S.get(L[0]).length();
-                    RPLList.get(I[i]).R = S.get(L[0]).substring(begin, end);
+                    String string = S.get(L[0]);
+                    if (end > string.length())
+                        end = string.length();
+                    RPLList.get(I[i]).R = string.substring(begin, end);
                 }
             }
             ////////////Line 13-Line 15 START/////////////
@@ -423,8 +424,8 @@ public class ERA implements Serializable {
             }
             activeAreaList = changedActiveAreaList;
 //            List<Integer> newI = new ArrayList<Integer>(I);
-//            int[] newI = I.clone();
-            int[] newI = Arrays.copyOf(I,I.length);
+            int[] newI = I.clone();
+//            int[] newI = Arrays.copyOf(I,I.length);
             for (int i = 0; i < I.length; i++) {
                 int j = 0;
                 while (j < I.length) {

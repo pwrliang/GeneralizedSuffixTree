@@ -121,7 +121,6 @@ public class Main {
         final Broadcast<Map<Character, String>> broadcasterTerminatorFilename = sc.broadcast(terminatorFilename);
 
         final JavaRDD<Set<String>> vtRDD = sc.parallelize(new ArrayList<Set<String>>(setOfVirtualTrees), partitions);
-        System.out.println("vtRDD partitions:" + vtRDD.partitions().size());
         JavaRDD<Map<String, ERA.L_B>> subtreePrepared = vtRDD.map(new Function<Set<String>, Map<String, ERA.L_B>>() {
             public Map<String, ERA.L_B> call(Set<String> input) throws Exception {
                 List<String> mainString = broadcastStringList.getValue();
@@ -132,7 +131,6 @@ public class Main {
             }
         });
         subtreePrepared.checkpoint();
-        System.out.println("subtreePrepared partitions:"+subtreePrepared.partitions().size());
 //        //build subTrees
         JavaRDD<List<ERA.TreeNode>> buildTrees = subtreePrepared.map(new Function<Map<String, ERA.L_B>, List<ERA.TreeNode>>() {
             public List<ERA.TreeNode> call(Map<String, ERA.L_B> input) throws Exception {
@@ -159,7 +157,6 @@ public class Main {
                 return partialResult.deleteCharAt(partialResult.length() - 1).toString();
             }
         });
-        System.out.println("resultsRDD partitions:"+resultsRDD.partitions().size());
         resultsRDD.checkpoint();
         resultsRDD.saveAsTextFile(outputURL);
         System.out.println("=====================Tasks Done============");
