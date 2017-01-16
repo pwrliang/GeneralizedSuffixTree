@@ -127,7 +127,7 @@ public class Main {
                 List<String> mainString = broadcastStringList.getValue();
                 Map<String, ERA.L_B> piLB = new HashMap<String, ERA.L_B>();
                 for (String pi : input)
-                    piLB.put(pi, era.newSubTreePrepare(mainString, pi));
+                    piLB.put(pi, era.subTreePrepare(mainString, pi));
                 return piLB;
             }
         });
