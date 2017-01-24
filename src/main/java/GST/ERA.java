@@ -40,8 +40,9 @@ public class ERA implements Serializable {
 
     static class L_B implements Serializable {
         List<int[]> L;
-//        List<Integer> B;
+        //        List<Integer> B;
         int[] B;
+
         L_B(List<int[]> L, int[] B) {
             this.L = L;
             this.B = B;
@@ -85,7 +86,7 @@ public class ERA implements Serializable {
      * 返回算法参数-弹性范围
      */
     private int getRangeOfSymbols(int L_) {
-        int bufferSize = 512 * 1024 * 1024;
+        int bufferSize = 256 * 1024 * 1024;
         if (L_ <= 0)
             L_ = 1;
         int range = bufferSize / L_;
@@ -282,12 +283,7 @@ public class ERA implements Serializable {
                 this.L = L;
             }
         }
-//        List<Integer> B = new ArrayList<Integer>();
-
-//        List<Integer> I = new ArrayList<Integer>();
         Map<Integer, Boolean> I_done = new HashMap<Integer, Boolean>();
-//        List<Integer> A = new ArrayList<Integer>();
-//        List<Boolean> A_done = new ArrayList<Boolean>();
         List<RPL> RPLList = new ArrayList<RPL>();
         Map<Integer, List<Integer>> activeAreaList = new HashMap<Integer, List<Integer>>();//key为活动区id，value为同一个活动区的index
 
@@ -306,16 +302,12 @@ public class ERA implements Serializable {
 
         int L_ = RPLList.size();
         int[] B = new int[RPLList.size()];
-        int[] A  = new int[RPLList.size()];
+        int[] A = new int[RPLList.size()];
         boolean[] A_done = new boolean[RPLList.size()];
         int[] I = new int[RPLList.size()];
         for (int i = 0; i < RPLList.size(); i++) {
-//            B.add(0);//the value of B[i] is 0 means B[i] is undefined
-//            I.add(i);
-            I[i]= i;
+            I[i] = i;
             I_done.put(i, false);
-//            A.add(0);
-//            A_done.add(false);
             RPLList.get(i).P = i;
         }
         //一开始只有0号活动区，0号活动区的元素为0-len-1
@@ -413,7 +405,7 @@ public class ERA implements Serializable {
                         for (int k = i; k < j; k++) {
                             int aaIndex = rplIndexes.remove(i);
                             newActiveArea.add(aaIndex);//下表会后窜，所以都是删i
-                            A[aaIndex]= lastActiveAreaId;
+                            A[aaIndex] = lastActiveAreaId;
                             if (rplIndexes.size() == 0)
                                 changedActiveAreaList.remove(aaId);
                         }
@@ -423,9 +415,7 @@ public class ERA implements Serializable {
                 }
             }
             activeAreaList = changedActiveAreaList;
-//            List<Integer> newI = new ArrayList<Integer>(I);
             int[] newI = I.clone();
-//            int[] newI = Arrays.copyOf(I,I.length);
             for (int i = 0; i < I.length; i++) {
                 int j = 0;
                 while (j < I.length) {
@@ -439,8 +429,7 @@ public class ERA implements Serializable {
                         break;
                     x++;
                 }
-                newI[x]=j;
-//                newI.set(x, j);
+                newI[x] = j;
             }
             I = newI;
             ////////////Line 13-Line 15 END////////
@@ -460,16 +449,16 @@ public class ERA implements Serializable {
                     }
                     if (cs < range) {//line 18
                         //line 19
-                        B[i]= start + cs;
+                        B[i] = start + cs;
                         if (B[i - 1] > 0 || i == 1) {
                             I_done.put(I[RPLList.get(i - 1).P], true);
-                            A_done[i - 1]= true;
+                            A_done[i - 1] = true;
                             RPLList.get(i - 1).R = null;
                             L_--;
                         }
                         if (i == RPLList.size() - 1 || B[i + 1] > 0) {
                             I_done.put(I[RPLList.get(i).P], true);
-                            A_done[i]= true;
+                            A_done[i] = true;
                             RPLList.get(i).R = null;
                             L_--;
                         }
@@ -484,7 +473,6 @@ public class ERA implements Serializable {
             newL.add(rpl.L);
         return new L_B(newL, B);
     }
-
 
     /**
      * 构建子树

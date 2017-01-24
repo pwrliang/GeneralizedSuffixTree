@@ -2,27 +2,19 @@ package GST;
 
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.serializers.FieldSerializer;
-import com.sun.corba.se.spi.presentation.rmi.IDLNameTranslator;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.*;
-import org.apache.hadoop.io.IOUtils;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 
 import java.io.*;
-import java.net.URI;
 import java.util.*;
 
 import org.apache.spark.api.java.function.FlatMapFunction;
 import org.apache.spark.api.java.function.Function;
-import org.apache.spark.api.java.function.PairFunction;
 import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.serializer.KryoRegistrator;
-import org.apache.spark.storage.StorageLevel;
-import scala.Char;
-import scala.Tuple2;
 
 //垂直分区
 //Fm     range  time
@@ -59,36 +51,24 @@ public class Main {
         }
     }
 
-    static int[] getParameter(String datasetName) {
-        //int[0]=Fm int[1]=range
-        if (datasetName.contains("5000 1000")) {
-            return new int[]{50000, 1000};
-        } else if (datasetName.contains("50000 1000")) {
-            return new int[]{50000, 4000};
-        } else if (datasetName.contains("50000 5000")) {
-            return new int[]{60000, 5000};
-        }
-        return new int[]{50000, 5000};
-    }
-
     public static void main(String[] args) throws IOException, InterruptedException {
         final String inputURL = args[0];
         final String outputURL = args[1];
-        final String tmpURL = args[2];
         int Fm = -1;
-        if (args.length == 4)
-            Fm = Integer.parseInt(args[3]);
-
+        int PARTITIONS = 96;
+        if (args.length == 3)
+            Fm = Integer.parseInt(args[2]);
+        else if (args.length == 4) {
+            Fm = Integer.parseInt(args[2]);
+            PARTITIONS = Integer.parseInt(args[3]);
+        }
         SparkConf sparkConf = new SparkConf().
-                setAppName(inputURL.split("/")[inputURL.split("/").length - 1] + " Fm:" + Fm);
+                setAppName(new Path(inputURL).getName() + " Fm:" + Fm);
         sparkConf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer");
         sparkConf.set("spark.kryo.registrator", ClassRegistrator.class.getName());
         final JavaSparkContext sc = new JavaSparkContext(sparkConf);
-
-
         final Map<Character, String> terminatorFilename = new HashMap<Character, String>();//终结符:文件名
         final List<String> S = new ArrayList<String>();
-        sc.setCheckpointDir(tmpURL);
 
         //开始读取文本文件
         //key filename value content
@@ -108,7 +88,7 @@ public class Main {
         int partitions = sc.defaultParallelism() * 4;
 
         if (Fm == -1)
-            Fm = lenthForAll / partitions;
+            Fm = lenthForAll / partitions + 40000;
 
         System.out.println("Fm:" + Fm + " AllLen:" + lenthForAll);
         Set<Character> alphabet = ERA.getAlphabet(S);//扫描串获得字母表
@@ -119,45 +99,31 @@ public class Main {
         //分配任务
         final Broadcast<List<String>> broadcastStringList = sc.broadcast(S);
         final Broadcast<Map<Character, String>> broadcasterTerminatorFilename = sc.broadcast(terminatorFilename);
-
-        final JavaRDD<Set<String>> vtRDD = sc.parallelize(new ArrayList<Set<String>>(setOfVirtualTrees), partitions);
+        final JavaRDD<Set<String>> vtRDD = sc.parallelize(new ArrayList<Set<String>>(setOfVirtualTrees), PARTITIONS);
         JavaRDD<Map<String, ERA.L_B>> subtreePrepared = vtRDD.map(new Function<Set<String>, Map<String, ERA.L_B>>() {
             public Map<String, ERA.L_B> call(Set<String> input) throws Exception {
-                List<String> mainString = broadcastStringList.getValue();
+                List<String> mainString = broadcastStringList.value();
                 Map<String, ERA.L_B> piLB = new HashMap<String, ERA.L_B>();
                 for (String pi : input)
                     piLB.put(pi, era.subTreePrepare(mainString, pi));
                 return piLB;
             }
         });
-        subtreePrepared.checkpoint();
-//        //build subTrees
-        JavaRDD<List<ERA.TreeNode>> buildTrees = subtreePrepared.map(new Function<Map<String, ERA.L_B>, List<ERA.TreeNode>>() {
-            public List<ERA.TreeNode> call(Map<String, ERA.L_B> input) throws Exception {
-                List<String> mainString = broadcastStringList.getValue();
-                List<ERA.TreeNode> result = new ArrayList<ERA.TreeNode>();
+//      //building subTrees & traverse
+        JavaRDD<String> resultsRDD = subtreePrepared.map(new Function<Map<String, ERA.L_B>, String>() {
+            public String call(Map<String, ERA.L_B> input) throws Exception {
+                List<String> mainString = broadcastStringList.value();
+                Map<Character, String> terminatorFilename = broadcasterTerminatorFilename.value();
+                StringBuilder partialResult = new StringBuilder();
                 for (String pi : input.keySet()) {
                     ERA.L_B lb = input.get(pi);
                     ERA.TreeNode root = era.buildSubTree(mainString, lb);
                     era.splitSubTree(mainString, pi, root);
-                    result.add(root);
-                }
-                return result;
-            }
-        });
-        buildTrees.checkpoint();
-        JavaRDD<String> resultsRDD = buildTrees.map(new Function<List<ERA.TreeNode>, String>() {
-            public String call(List<ERA.TreeNode> input) throws Exception {
-                List<String> mainString = broadcastStringList.getValue();
-                Map<Character, String> terminatorFilename = broadcasterTerminatorFilename.value();
-                StringBuilder partialResult = new StringBuilder();
-                for (ERA.TreeNode root : input) {
                     partialResult.append(era.traverseTree(mainString, root, terminatorFilename));
                 }
                 return partialResult.deleteCharAt(partialResult.length() - 1).toString();
             }
         });
-        resultsRDD.checkpoint();
         resultsRDD.saveAsTextFile(outputURL);
         System.out.println("=====================Tasks Done============");
     }
