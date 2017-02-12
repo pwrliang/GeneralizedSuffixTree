@@ -58,10 +58,8 @@ public class Main {
             return 40000;
         else if (fileSize < 50000000)//500000 20
             return 70000;
-        else if (fileSize < 75000000)//50000 5000
+        else if (fileSize < 80000000)//50000 5000
             return 75000;
-        else if (fileSize < 78000000)//1000000 100
-            return 70000;
         else //500000 1000
             return 150000;
     }
