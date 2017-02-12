@@ -51,16 +51,16 @@ public class Main {
         }
     }
 
-    static int FmSelector(int fileSize){
-        if(fileSize<5000000) //5000 1000
-            return 50000;
-        else if(fileSize<30000000)//50000 1000
+    static int FmSelector(int fileSize) {
+        if (fileSize < 5000000) //5000 1000
+            return 30000;
+        else if (fileSize < 30000000)//50000 1000
             return 40000;
-        else if(fileSize<50000000)//500000 20
-            return 700000;
-        else if(fileSize<75000000)//50000 5000
+        else if (fileSize < 50000000)//500000 20
+            return 70000;
+        else if (fileSize < 75000000)//50000 5000
             return 75000;
-        else if(fileSize<78000000)//1000000 100
+        else if (fileSize < 78000000)//1000000 100
             return 70000;
         else //500000 1000
             return 150000;
@@ -73,7 +73,7 @@ public class Main {
                 setAppName(new Path(inputURL).getName());
         sparkConf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer");
         sparkConf.set("spark.kryo.registrator", ClassRegistrator.class.getName());
-        sparkConf.set("spark.kryoserializer.buffer.max","2047");
+        sparkConf.set("spark.kryoserializer.buffer.max", "2047");
         final JavaSparkContext sc = new JavaSparkContext(sparkConf);
         final Map<Character, String> terminatorFilename = new HashMap<Character, String>();//终结符:文件名
         final List<String> S = new ArrayList<String>();
@@ -90,13 +90,13 @@ public class Main {
             terminatorFilename.put(terminator, filename);
         }
 
-        int lenthForAll = 0;
+        int lengthForAll = 0;
         for (String s : S)
-            lenthForAll += s.length();
+            lengthForAll += s.length();
         final int PARTITIONS = sc.defaultParallelism() * 4;
-        int Fm = FmSelector(lenthForAll);
+        int Fm = FmSelector(lengthForAll);
 
-        System.out.println("Fm:" + Fm + " AllLen:" + lenthForAll);
+        System.out.println("Fm:" + Fm + " AllLen:" + lengthForAll);
         Set<Character> alphabet = ERA.getAlphabet(S);//扫描串获得字母表
         long start = System.currentTimeMillis();
         System.out.println("==================Start Vertical Partition version 1.16-1=======================");
