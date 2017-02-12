@@ -51,21 +51,29 @@ public class Main {
         }
     }
 
+    static int FmSelector(int fileSize){
+        if(fileSize<5000000) //5000 1000
+            return 50000;
+        else if(fileSize<30000000)//50000 1000
+            return 40000;
+        else if(fileSize<50000000)//500000 20
+            return 700000;
+        else if(fileSize<75000000)//50000 5000
+            return 75000;
+        else if(fileSize<78000000)//1000000 100
+            return 70000;
+        else //500000 1000
+            return 150000;
+    }
+
     public static void main(String[] args) throws IOException, InterruptedException {
         final String inputURL = args[0];
         final String outputURL = args[1];
-        int Fm = -1;
-        int PARTITIONS = 96;
-        if (args.length == 3)
-            Fm = Integer.parseInt(args[2]);
-        else if (args.length == 4) {
-            Fm = Integer.parseInt(args[2]);
-            PARTITIONS = Integer.parseInt(args[3]);
-        }
         SparkConf sparkConf = new SparkConf().
-                setAppName(new Path(inputURL).getName() + " Fm:" + Fm);
+                setAppName(new Path(inputURL).getName());
         sparkConf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer");
         sparkConf.set("spark.kryo.registrator", ClassRegistrator.class.getName());
+        sparkConf.set("spark.kryoserializer.buffer.max","2047");
         final JavaSparkContext sc = new JavaSparkContext(sparkConf);
         final Map<Character, String> terminatorFilename = new HashMap<Character, String>();//终结符:文件名
         final List<String> S = new ArrayList<String>();
@@ -85,10 +93,8 @@ public class Main {
         int lenthForAll = 0;
         for (String s : S)
             lenthForAll += s.length();
-        int partitions = sc.defaultParallelism() * 4;
-
-        if (Fm == -1)
-            Fm = lenthForAll / partitions + 40000;
+        final int PARTITIONS = sc.defaultParallelism() * 4;
+        int Fm = FmSelector(lenthForAll);
 
         System.out.println("Fm:" + Fm + " AllLen:" + lenthForAll);
         Set<Character> alphabet = ERA.getAlphabet(S);//扫描串获得字母表
