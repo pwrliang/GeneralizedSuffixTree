@@ -11,6 +11,7 @@ import java.util.*;
 
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.VoidFunction;
+import org.apache.spark.broadcast.Broadcast;
 
 //垂直分区
 //Fm     range  time
@@ -53,11 +54,11 @@ public class Main {
     }
 
     public static void main(String[] args) throws IOException, InterruptedException {
-        SparkConf sparkConf = new SparkConf().
-                setAppName("Generalized Suffix Tree");
-        final JavaSparkContext sc = new JavaSparkContext(sparkConf);
         final String inputURL = args[0];
         final String outputURL = args[1];
+        SparkConf sparkConf = new SparkConf().
+                setAppName(new Path(inputURL).getName());
+        final JavaSparkContext sc = new JavaSparkContext(sparkConf);
         final Map<Character, String> terminatorFilename = new HashMap<Character, String>();//终结符:文件名
         final List<String> S = new ArrayList<String>();
 
@@ -84,10 +85,12 @@ public class Main {
         Set<Set<String>> setOfVirtualTrees = era.verticalPartitioning(S, alphabet, Fm);
         System.out.println("==================Vertical Partition Finished setOfVirtualTrees:" + setOfVirtualTrees.size() + "================");
         //分配任务
-        JavaRDD<Set<String>> vtRDD = sc.parallelize(new ArrayList<Set<String>>(setOfVirtualTrees),PARTITIONS);
+        JavaRDD<Set<String>> vtRDD = sc.parallelize(new ArrayList<Set<String>>(setOfVirtualTrees), PARTITIONS);
+        final Broadcast<List<String>> broadcastS = sc.broadcast(S);
         JavaRDD<ERA> works = vtRDD.map(new Function<Set<String>, ERA>() {
             public ERA call(Set<String> v1) throws Exception {
-                return new ERA(S, v1, terminatorFilename);
+                List<String> stringList = broadcastS.value();
+                return new ERA(stringList, v1, terminatorFilename);
             }
         });
 //      执行任务
