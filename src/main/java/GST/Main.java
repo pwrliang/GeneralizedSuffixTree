@@ -1,13 +1,12 @@
 package GST;
 
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.*;
 import org.apache.spark.SparkConf;
+import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 
 import java.io.*;
-import java.net.URI;
 import java.util.*;
 
 import org.apache.spark.api.java.function.Function;
@@ -40,53 +39,17 @@ import org.apache.spark.api.java.function.VoidFunction;
  * This is the enter point of program
  */
 public class Main {
-    private static String readFile(String url) throws IOException {
-        Path path = new Path(url);
-        URI uri = path.toUri();
-        String hdfsPath = String.format("%s://%s:%d", uri.getScheme(), uri.getHost(), uri.getPort());
-        Configuration conf = new Configuration();
-        conf.set("fs.defaultFS", hdfsPath);//hdfs://master:9000
-        FileSystem fileSystem = FileSystem.get(conf);
-        BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(fileSystem.open(path)));
-        StringBuilder sb = new StringBuilder();
-        String line;
-        while ((line = bufferedReader.readLine()) != null) {
-            sb.append(line);
-        }
-        bufferedReader.close();
-        return sb.toString();
-    }
-
-    private static List<String> listFiles(String url) throws IOException {
-        Path path = new Path(url);
-        URI uri = path.toUri();
-        String hdfsPath = String.format("%s://%s:%d", uri.getScheme(), uri.getHost(), uri.getPort());
-        Configuration conf = new Configuration();
-        conf.set("fs.defaultFS", hdfsPath);
-
-        FileSystem fileSystem = FileSystem.get(conf);
-        RemoteIterator<LocatedFileStatus> files = fileSystem.listFiles(path, true);
-        List<String> pathList = new ArrayList<String>();
-        while (files.hasNext()) {
-            LocatedFileStatus file = files.next();
-            pathList.add(file.getPath().toString());
-        }
-        return pathList;
-    }
-
-    private static boolean mkdir(String url) throws IOException {
-        Path path = new Path(url);
-        URI uri = path.toUri();
-        String hdfsPath = String.format("%s://%s:%d", uri.getScheme(), uri.getHost(), uri.getPort());
-        Configuration conf = new Configuration();
-        conf.set("fs.defaultFS", hdfsPath);
-
-        FileSystem fileSystem = FileSystem.get(conf);
-        if (!fileSystem.exists(path)) {
-            fileSystem.mkdirs(path);
-            return true;
-        }
-        return false;
+    static int FmSelector(int fileSize) {
+        if (fileSize < 5000000) //5000 1000
+            return 30000;
+        else if (fileSize < 30000000)//50000 1000
+            return 40000;
+        else if (fileSize < 50000000)//500000 20
+            return 70000;
+        else if (fileSize < 80000000)//50000 5000
+            return 75000;
+        else //500000 1000
+            return 150000;
     }
 
     public static void main(String[] args) throws IOException, InterruptedException {
@@ -95,45 +58,46 @@ public class Main {
         final JavaSparkContext sc = new JavaSparkContext(sparkConf);
         final String inputURL = args[0];
         final String outputURL = args[1];
-        final int Fm = Integer.parseInt(args[2]);
-        final int ELASTIC_RANGE = Integer.parseInt(args[3]);
-
-
-        if (mkdir(outputURL)) {
-            System.out.println("folder doesn't exists, make dir");
-        } else {
-            System.out.println("folder existed");
-        }
+        final Map<Character, String> terminatorFilename = new HashMap<Character, String>();//终结符:文件名
+        final List<String> S = new ArrayList<String>();
 
         //开始读取文本文件
-        List<String> pathList = listFiles(inputURL);
-        final Map<Character, String> terminatorFilename = new HashMap<Character, String>();//终结符:文件名
-        SlavesWorks masterWork = new SlavesWorks();
-        final List<String> S = new ArrayList<String>();
-        for (String filename : pathList) {
-            String content = readFile(filename);
-            Character terminator = masterWork.nextTerminator();
-            S.add(content + terminator);
-            terminatorFilename.put(terminator, filename.substring(filename.lastIndexOf('/') + 1));
+        //key filename value content
+        JavaPairRDD<String, String> inputData = sc.wholeTextFiles(inputURL);//read whole folder
+        Map<String, String> dataSet = inputData.collectAsMap();//key file path, value content
+        final ERA era = new ERA();
+        for (String path : dataSet.keySet()) {
+            String filename = new Path(path).getName();
+            Character terminator = era.nextTerminator();
+            S.add(dataSet.get(path) + terminator);//append terminator to the end of text
+            terminatorFilename.put(terminator, filename);
         }
-        Set<Character> alphabet = masterWork.getAlphabet(S);
+
+        int lengthForAll = 0;
+        for (String s : S)
+            lengthForAll += s.length();
+        final int PARTITIONS = sc.defaultParallelism() * 4;
+        int Fm = FmSelector(lengthForAll);
+
+        Set<Character> alphabet = era.getAlphabet(S);
         System.out.println("==================Start Vertical Partition=======================");
-        Set<Set<String>> setOfVirtualTrees = masterWork.verticalPartitioning(S, alphabet, Fm);
+        Set<Set<String>> setOfVirtualTrees = era.verticalPartitioning(S, alphabet, Fm);
         System.out.println("==================Vertical Partition Finished setOfVirtualTrees:" + setOfVirtualTrees.size() + "================");
         //分配任务
-        JavaRDD<Set<String>> vtRDD = sc.parallelize(new ArrayList<Set<String>>(setOfVirtualTrees));
-        JavaRDD<SlavesWorks> works = vtRDD.map(new Function<Set<String>, SlavesWorks>() {
-            public SlavesWorks call(Set<String> v1) throws Exception {
-                return new SlavesWorks(S, v1, terminatorFilename, outputURL, ELASTIC_RANGE);
+        JavaRDD<Set<String>> vtRDD = sc.parallelize(new ArrayList<Set<String>>(setOfVirtualTrees),PARTITIONS);
+        JavaRDD<ERA> works = vtRDD.map(new Function<Set<String>, ERA>() {
+            public ERA call(Set<String> v1) throws Exception {
+                return new ERA(S, v1, terminatorFilename);
             }
         });
 //      执行任务
         System.out.println("=====================Start Tasks============");
-        works.foreach(new VoidFunction<SlavesWorks>() {
-            public void call(SlavesWorks slavesWorks) throws Exception {
-                slavesWorks.work();
+        JavaRDD<String> result = works.map(new Function<ERA, String>() {
+            public String call(ERA v1) throws Exception {
+                return v1.work();
             }
         });
+        result.saveAsTextFile(outputURL);
         System.out.println("=====================Tasks Done============");
     }
 }

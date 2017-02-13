@@ -12,7 +12,7 @@ import java.util.*;
  * Created by lib on 16-11-11.
  * This is the implementation of Era
  */
-public class SlavesWorks implements Serializable {
+public class ERA implements Serializable {
     private static class TreeNode {
         String data;
         int[] index;
@@ -36,44 +36,20 @@ public class SlavesWorks implements Serializable {
     private List<String> S;//字符串列表
     private Set<String> p;//pi列表
     private Map<Character, String> terminatorFilename;//终结符-文件名映射
-    private String outputURL;//位于HDFS上的路径，用于结果保存
-    private int ELASTIC_RANGE;//弹性范围
 
-    /**
-     * 将内容写入HDFS中
-     *
-     * @param outputURL HDFS的URL
-     * @param filename  文件名
-     * @param content   内容
-     */
-    private void writeToFile(String outputURL, String filename, String content) throws IOException {
-        Path path = new Path(outputURL + "/" + filename);
-        URI uri = path.toUri();
-        String hdfsPath = String.format("%s://%s:%d", uri.getScheme(), uri.getHost(), uri.getPort());
-        Configuration conf = new Configuration();
-        conf.set("fs.defaultFS", hdfsPath);//hdfs://master:9000
-        FileSystem fileSystem = FileSystem.get(conf);
-        BufferedWriter bufferedWriter = new BufferedWriter(new OutputStreamWriter(fileSystem.create(path)));
-        bufferedWriter.write(content);
-        bufferedWriter.close();
+    ERA() {
     }
 
-    SlavesWorks() {
-
-    }
-
-    SlavesWorks(List<String> S, Set<String> p, Map<Character, String> terminatorFilename, String outputURL, int ELASTIC_RANGE) {
+    ERA(List<String> S, Set<String> p, Map<Character, String> terminatorFilename) {
         this.S = S;
         this.p = p;
         this.terminatorFilename = terminatorFilename;
-        this.outputURL = outputURL;
-        this.ELASTIC_RANGE = ELASTIC_RANGE;
     }
 
     /**
      * 开始建树并写入HDFS中
      */
-    void work() throws IOException {
+    String work() throws IOException {
         StringBuilder sb = new StringBuilder();
         for (String Pi : p) {
             Object[] L_B = subTreePrepare(S, Pi);
@@ -81,22 +57,7 @@ public class SlavesWorks implements Serializable {
             splitSubTree(S, Pi, root);
             sb.append(traverseTree(root, terminatorFilename));
         }
-        writeToFile(outputURL,"part-"+this.hashCode(),sb.toString());
-    }
-
-    /**
-     * 单机版，用于测试
-     */
-    String workEx() {
-        StringBuilder stringBuilder = new StringBuilder();
-        for (String Pi : p) {
-            Object[] L_B = subTreePrepare(S, Pi);
-            TreeNode root = buildSubTree((List<int[]>) L_B[0], (List<Integer>) L_B[1]);
-            splitSubTree(S, Pi, root);
-            String s = traverseTree(root, terminatorFilename);
-            stringBuilder.append(s);
-        }
-        return stringBuilder.toString();
+        return sb.substring(0, sb.length() - 1);
     }
 
     /**
@@ -119,8 +80,14 @@ public class SlavesWorks implements Serializable {
     /**
      * 返回算法参数-弹性范围
      */
-    private int getRangeOfSymbols() {
-        return ELASTIC_RANGE;
+    private int getRangeOfSymbols(int L_) {
+        int bufferSize = 256 * 1024 * 1024;
+        if (L_ <= 0)
+            L_ = 1;
+        int range = bufferSize / L_;
+        if (range == 0)
+            return 1000;
+        return range;
     }
 
     /**
@@ -363,7 +330,7 @@ public class SlavesWorks implements Serializable {
             if (defined)
                 break;
 
-            int range = getRangeOfSymbols();//line 9
+            int range = getRangeOfSymbols(RPLList.size());//line 9
             for (int i = 0; i < RPLList.size(); i++) {//line 10
                 if (!I_done.get(I.get(i))) {
                     //R[I[i]]=READRANGE(S,L[I[i]]+start,range)
