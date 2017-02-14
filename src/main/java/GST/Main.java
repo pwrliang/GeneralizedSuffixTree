@@ -7,36 +7,11 @@ import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
-
 import java.io.*;
 import java.util.*;
-
-import org.apache.spark.api.java.function.FlatMapFunction;
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.serializer.KryoRegistrator;
-
-//垂直分区
-//Fm     range  time
-//5000 1000 data set
-//102400 1000   2.6min
-//102400 100   8.1min
-//102400 400   3.9min
-//102400 5000  3.1min
-//102400 2000  2.5min
-//102400 1500  2.7min
-//102400 800   2.7min
-//50000 1000   1.7min
-//10000 1000   1.4min
-//60000 1000   1.4min
-//30000 1000   1.2min
-//50000 1000 data set
-//50000 1000  37min
-//60000 1000  43min
-//40000 1000  80+min
-//50000 2000  21min
-//50000 3000  17min
-//50000 4000  14min
 
 /**
  * Created by Liang on 16-11-9.
@@ -91,8 +66,8 @@ public class Main {
         int lengthForAll = 0;
         for (String s : S)
             lengthForAll += s.length();
-        final int PARTITIONS = sc.defaultParallelism() * 4;
-        int Fm = FmSelector(lengthForAll);
+        int PARTITIONS = sc.defaultParallelism() * 4;
+        int Fm = Integer.parseInt(args[2]);//FmSelector(lengthForAll);
 
         System.out.println("Fm:" + Fm + " AllLen:" + lengthForAll);
         Set<Character> alphabet = ERA.getAlphabet(S);//扫描串获得字母表
@@ -103,6 +78,7 @@ public class Main {
         //分配任务
         final Broadcast<List<String>> broadcastStringList = sc.broadcast(S);
         final Broadcast<Map<Character, String>> broadcasterTerminatorFilename = sc.broadcast(terminatorFilename);
+        PARTITIONS = setOfVirtualTrees.size();
         final JavaRDD<Set<String>> vtRDD = sc.parallelize(new ArrayList<Set<String>>(setOfVirtualTrees), PARTITIONS);
         JavaRDD<Map<String, ERA.L_B>> subtreePrepared = vtRDD.map(new Function<Set<String>, Map<String, ERA.L_B>>() {
             public Map<String, ERA.L_B> call(Set<String> input) throws Exception {
