@@ -2,7 +2,7 @@ package GST;
 
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.serializers.FieldSerializer;
-import org.apache.hadoop.fs.*;
+import org.apache.hadoop.fs.Path;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
@@ -36,7 +36,7 @@ public class Main {
         else if (fileSize < 80000000)//50000 5000
             return 75000;
         else //500000 1000
-            return 150000;
+            return 160000;
     }
 
     public static void main(String[] args) throws IOException, InterruptedException {
@@ -67,7 +67,7 @@ public class Main {
         for (String s : S)
             lengthForAll += s.length();
         int PARTITIONS = sc.defaultParallelism() * 4;
-        int Fm = Integer.parseInt(args[2]);//FmSelector(lengthForAll);
+        int Fm = FmSelector(lengthForAll);
 
         System.out.println("Fm:" + Fm + " AllLen:" + lengthForAll);
         Set<Character> alphabet = ERA.getAlphabet(S);//扫描串获得字母表

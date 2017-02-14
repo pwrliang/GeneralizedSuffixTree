@@ -40,7 +40,6 @@ public class ERA implements Serializable {
 
     static class L_B implements Serializable {
         List<int[]> L;
-        //        List<Integer> B;
         int[] B;
 
         L_B(List<int[]> L, int[] B) {
@@ -48,11 +47,11 @@ public class ERA implements Serializable {
             this.B = B;
         }
 
-        public List<int[]> getL() {
+        List<int[]> getL() {
             return L;
         }
 
-        public int[] getB() {
+        int[] getB() {
             return B;
         }
     }
@@ -60,10 +59,6 @@ public class ERA implements Serializable {
     private char terminator = 43000;//起始终结符
     private static final char SPLITTER_INSERTION = 57001;//拆分并插入叶节点
     private static final char SPLITTER = 57002;//只拆分，不插入叶节点
-
-
-    ERA() {
-    }
 
     /**
      * 判断字符是否为终结符
