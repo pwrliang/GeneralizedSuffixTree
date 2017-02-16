@@ -7,8 +7,10 @@ import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
+
 import java.io.*;
 import java.util.*;
+
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.serializer.KryoRegistrator;
@@ -36,14 +38,14 @@ public class Main {
         else if (fileSize < 80000000)//50000 5000
             return 75000;
         else //500000 1000
-            return 160000;
+            return 150000;
     }
 
     public static void main(String[] args) throws IOException, InterruptedException {
         final String inputURL = args[0];
         final String outputURL = args[1];
         SparkConf sparkConf = new SparkConf().
-                setAppName(new Path(inputURL).getName());
+                setAppName("GST");
         sparkConf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer");
         sparkConf.set("spark.kryo.registrator", ClassRegistrator.class.getName());
         sparkConf.set("spark.kryoserializer.buffer.max", "2047");
@@ -66,19 +68,16 @@ public class Main {
         int lengthForAll = 0;
         for (String s : S)
             lengthForAll += s.length();
-        int PARTITIONS = sc.defaultParallelism() * 4;
         int Fm = FmSelector(lengthForAll);
 
-        System.out.println("Fm:" + Fm + " AllLen:" + lengthForAll);
         Set<Character> alphabet = ERA.getAlphabet(S);//扫描串获得字母表
-        long start = System.currentTimeMillis();
-        System.out.println("==================Start Vertical Partition version 1.16-1=======================");
         Set<Set<String>> setOfVirtualTrees = era.verticalPartitioning(S, alphabet, Fm);//开始垂直分区
-        System.out.println("==================Vertical Partition Finished time:" + (System.currentTimeMillis() - start) / 1000 + " setOfVirtualTrees:" + setOfVirtualTrees.size() + "================");
         //分配任务
         final Broadcast<List<String>> broadcastStringList = sc.broadcast(S);
         final Broadcast<Map<Character, String>> broadcasterTerminatorFilename = sc.broadcast(terminatorFilename);
-        PARTITIONS = setOfVirtualTrees.size();
+        int PARTITIONS = (int) (setOfVirtualTrees.size() / 1.5);
+        if (PARTITIONS < 1)
+            PARTITIONS = 1;
         final JavaRDD<Set<String>> vtRDD = sc.parallelize(new ArrayList<Set<String>>(setOfVirtualTrees), PARTITIONS);
         JavaRDD<Map<String, ERA.L_B>> subtreePrepared = vtRDD.map(new Function<Set<String>, Map<String, ERA.L_B>>() {
             public Map<String, ERA.L_B> call(Set<String> input) throws Exception {
@@ -105,6 +104,5 @@ public class Main {
             }
         });
         resultsRDD.saveAsTextFile(outputURL);
-        System.out.println("=====================Tasks Done============");
     }
 }
