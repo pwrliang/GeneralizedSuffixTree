@@ -20,14 +20,6 @@ import org.apache.spark.serializer.KryoRegistrator;
  * This is the enter point of program
  */
 public class Main {
-    public static class ClassRegistrator implements KryoRegistrator {
-        public void registerClasses(Kryo kryo) {
-            kryo.register(ERA.L_B.class, new FieldSerializer(kryo, ERA.class));
-            kryo.register(ERA.TreeNode.class, new FieldSerializer(kryo, ERA.TreeNode.class));
-            kryo.register(ERA.class, new FieldSerializer(kryo, ERA.class));
-        }
-    }
-
     static int FmSelector(int fileSize) {
         if (fileSize < 5000000) //5000 1000
             return 30000;
@@ -38,7 +30,7 @@ public class Main {
         else if (fileSize < 80000000)//50000 5000
             return 75000;
         else //500000 1000
-            return 150000;
+            return 140000;
     }
 
     public static void main(String[] args) throws IOException, InterruptedException {
@@ -46,9 +38,6 @@ public class Main {
         final String outputURL = args[1];
         SparkConf sparkConf = new SparkConf().
                 setAppName("GST");
-        sparkConf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer");
-        sparkConf.set("spark.kryo.registrator", ClassRegistrator.class.getName());
-        sparkConf.set("spark.kryoserializer.buffer.max", "2047");
         final JavaSparkContext sc = new JavaSparkContext(sparkConf);
         final Map<Character, String> terminatorFilename = new HashMap<Character, String>();//终结符:文件名
         final List<String> S = new ArrayList<String>();
@@ -75,9 +64,7 @@ public class Main {
         //分配任务
         final Broadcast<List<String>> broadcastStringList = sc.broadcast(S);
         final Broadcast<Map<Character, String>> broadcasterTerminatorFilename = sc.broadcast(terminatorFilename);
-        int PARTITIONS = (int) (setOfVirtualTrees.size() / 1.5);
-        if (PARTITIONS < 1)
-            PARTITIONS = 1;
+        final int PARTITIONS = setOfVirtualTrees.size();
         final JavaRDD<Set<String>> vtRDD = sc.parallelize(new ArrayList<Set<String>>(setOfVirtualTrees), PARTITIONS);
         JavaRDD<Map<String, ERA.L_B>> subtreePrepared = vtRDD.map(new Function<Set<String>, Map<String, ERA.L_B>>() {
             public Map<String, ERA.L_B> call(Set<String> input) throws Exception {
