@@ -30,7 +30,7 @@ public class Main {
         else if (fileSize < 80000000)//50000 5000
             return 75000;
         else //500000 1000
-            return 140000;
+            return 150000;
     }
 
     public static void main(String[] args) throws IOException, InterruptedException {
