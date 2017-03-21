@@ -81,7 +81,7 @@ public class ERA implements Serializable {
      * 返回算法参数-弹性范围
      */
     private int getRangeOfSymbols(int L_) {
-        int bufferSize = 256 * 1024 * 1024;
+        int bufferSize = 300 * 1024 * 1024;
         if (L_ <= 0)
             L_ = 1;
         int range = bufferSize / L_;
@@ -113,8 +113,8 @@ public class ERA implements Serializable {
      */
     Set<Set<String>> verticalPartitioning(List<String> S, Set<Character> alphabet, long Fm) {
         Set<Set<String>> virtualTree = new HashSet<Set<String>>();
-        List<String> P_ = new LinkedList<String>();
-        List<String> P = new LinkedList<String>();
+        List<String> P_ = new ArrayList<String>(alphabet.size());
+        List<String> P = new ArrayList<String>(alphabet.size());
         //每个key一个队列
         Map<String, List<int[]>> rank = new HashMap<String, List<int[]>>();
         final Map<String, Long> fpiList = new HashMap<String, Long>();
@@ -227,7 +227,7 @@ public class ERA implements Serializable {
             rank.remove(piWithoutSplitter);
         }
         //sort P in decending fpi order
-        P = new LinkedList<String>(fpiList.keySet());
+        P = new ArrayList<String>(fpiList.keySet());
         Collections.sort(P, new Comparator<String>() {
             public int compare(String o1, String o2) {
                 if (fpiList.get(o1) > fpiList.get(o2))
@@ -348,7 +348,7 @@ public class ERA implements Serializable {
                 if (A_done[activeAreaList.get(aaId).get(0)])
                     continue;
                 List<Integer> rplIndexes = activeAreaList.get(aaId);//找到同一个活动区元素的位置列表
-                List<RPL> aaRPL = new LinkedList<RPL>();//对同一个活动区，取出元素放入这里
+                List<RPL> aaRPL = new ArrayList<RPL>(rplIndexes.size());//对同一个活动区，取出元素放入这里
                 //遍历同一个活动区的每个元素，取出来加入新的列表
                 for (Integer index : rplIndexes) {
                     aaRPL.add(RPLList.get(index));
@@ -394,7 +394,7 @@ public class ERA implements Serializable {
                     //发现活动区
                     if (j != i + 1) {
                         lastActiveAreaId++;
-                        List<Integer> newActiveArea = new ArrayList<Integer>();
+                        List<Integer> newActiveArea = new ArrayList<Integer>(j - i + 1);
                         changedActiveAreaList.put(lastActiveAreaId, newActiveArea);
 
                         for (int k = i; k < j; k++) {
@@ -463,7 +463,7 @@ public class ERA implements Serializable {
             start += range;
         }
 
-        List<int[]> newL = new ArrayList<int[]>();
+        List<int[]> newL = new ArrayList<int[]>(RPLList.size());
         for (RPL rpl : RPLList)
             newL.add(rpl.L);
         return new L_B(newL, B);
@@ -611,23 +611,20 @@ public class ERA implements Serializable {
      * @param terminatorFileName 终结符-文件名对应列表
      * @return 返回一棵树所有叶节点遍历结果
      */
-    String traverseTree(List<String> S, TreeNode root, Map<Character, String> terminatorFileName) {
+    void traverseTree(List<String> S, TreeNode root, Map<Character, String> terminatorFileName, Set<String> result) {
         Stack<TreeNode> stack = new Stack<TreeNode>();
         TreeNode node = root;
-        StringBuilder sb = new StringBuilder();
         if (root == null)
-            return null;
+            return;
         while (node != null || !stack.isEmpty()) {
             while (node != null) {
                 stack.push(node);
                 node = node.leftChild;
             }
             node = stack.pop();
-            if (node.leftChild == null) {
-                sb.append(String.format("%d %s:%d\n", stack.size(), terminatorFileName.get(S.get(node.index).charAt(node.end - 1)), node.suffix_index));
-            }
+            if (node.leftChild == null)
+                result.add(String.format("%d %s:%d", stack.size(), terminatorFileName.get(S.get(node.index).charAt(node.end - 1)), node.suffix_index));
             node = node.rightSibling;
         }
-        return sb.toString();
     }
 }
