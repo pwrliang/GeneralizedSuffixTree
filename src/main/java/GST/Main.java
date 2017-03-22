@@ -25,13 +25,13 @@ public class Main {
         if (fileSize < 5000000) //5000 1000
             return 30000;
         else if (fileSize < 30000000)//50000 1000
-            return 40000;
+            return 30000;
         else if (fileSize < 50000000)//500000 20
-            return 70000;
+            return 60000;
         else if (fileSize < 80000000)//50000 5000
-            return 75000;
+            return 40000;
         else //500000 1000
-            return 150000;
+            return 70000;
     }
 
     public static class ClassRegistrator implements KryoRegistrator {
@@ -45,15 +45,16 @@ public class Main {
     public static void main(String[] args) throws IOException, InterruptedException {
         final String inputURL = args[0];
         final String outputURL = args[1];
-        final int Fm = Integer.valueOf(args[2]);
+//        final int Fm = Integer.valueOf(args[2]);
+//        System.out.println(new Date() + " run:" + "GST " + inputURL + " " + Fm);
         SparkConf sparkConf = new SparkConf().
-                setAppName("GST" + inputURL + " " + Fm);
+                setAppName("GST" + inputURL);
         sparkConf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer");
         sparkConf.set("spark.kryo.registrator", ClassRegistrator.class.getName());
         sparkConf.set("spark.kryoserializer.buffer.max", "2047");
-        sparkConf.set("spark.executor.instances", "50");
-        sparkConf.set("spark.executor.cores", "4");
-        sparkConf.set("spark.default.parallelism", "150");
+//        sparkConf.set("spark.executor.instances", "50");
+//        sparkConf.set("spark.executor.cores", "4");
+//        sparkConf.set("spark.default.parallelism", "1000");
         final JavaSparkContext sc = new JavaSparkContext(sparkConf);
         final Map<Character, String> terminatorFilename = new HashMap<Character, String>();//终结符:文件名
         final List<String> S = new ArrayList<String>();
@@ -73,15 +74,20 @@ public class Main {
         int lengthForAll = 0;
         for (String s : S)
             lengthForAll += s.length();
-//        int Fm = FmSelector(lengthForAll);
-
+        int Fm = FmSelector(lengthForAll);
+        System.out.println(new Date() + " length:" + lengthForAll);
         Set<Character> alphabet = ERA.getAlphabet(S);//扫描串获得字母表
+        long start = System.currentTimeMillis();
         Set<Set<String>> setOfVirtualTrees = era.verticalPartitioning(S, alphabet, Fm);//开始垂直分区
+        System.out.println(new Date() + " vertical partition time:" + (System.currentTimeMillis() - start) / 1000);
+        start = System.currentTimeMillis();
         //分配任务
         final Broadcast<List<String>> broadcastStringList = sc.broadcast(S);
         final Broadcast<Map<Character, String>> broadcasterTerminatorFilename = sc.broadcast(terminatorFilename);
-        final int PARTITIONS = setOfVirtualTrees.size();
-        JavaRDD<Set<String>> vtRDD = sc.parallelize(new ArrayList<Set<String>>(setOfVirtualTrees));
+        int PARTITIONS = (int) (setOfVirtualTrees.size() / 1.5);
+        if (PARTITIONS < sc.defaultParallelism())
+            PARTITIONS = sc.defaultParallelism();
+        JavaRDD<Set<String>> vtRDD = sc.parallelize(new ArrayList<Set<String>>(setOfVirtualTrees), PARTITIONS);
         JavaRDD<Set<String>> tmp = vtRDD.map(new Function<Set<String>, Set<String>>() {
             public Set<String> call(Set<String> strings) throws Exception {
                 Set<String> res = new HashSet<String>();
@@ -102,5 +108,6 @@ public class Main {
             }
         });
         resultRDD.saveAsTextFile(outputURL);
+        System.out.println(new Date() + " building time:" + (System.currentTimeMillis() - start) / 1000);
     }
 }
