@@ -7,14 +7,13 @@ import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
-
-import java.io.*;
-import java.util.*;
-
 import org.apache.spark.api.java.function.FlatMapFunction;
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.serializer.KryoRegistrator;
+
+import java.io.IOException;
+import java.util.*;
 
 /**
  * Created by Liang on 16-11-9.
@@ -33,7 +32,6 @@ public class Main {
         else //500000 1000
             return 60000;
     }
-
     public static class ClassRegistrator implements KryoRegistrator {
         public void registerClasses(Kryo kryo) {
             kryo.register(ERA.L_B.class, new FieldSerializer(kryo, ERA.class));
@@ -41,12 +39,11 @@ public class Main {
             kryo.register(ERA.class, new FieldSerializer(kryo, ERA.class));
         }
     }
-
     public static void main(String[] args) throws IOException, InterruptedException {
         final String inputURL = args[0];
         final String outputURL = args[1];
         SparkConf sparkConf = new SparkConf().
-                setAppName("GST");
+                setAppName(new Path(inputURL).getName());
         sparkConf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer");
         sparkConf.set("spark.kryo.registrator", ClassRegistrator.class.getName());
         sparkConf.set("spark.kryoserializer.buffer.max", "2047");
@@ -67,6 +64,7 @@ public class Main {
             terminatorFilename.put(terminator, filename);
         }
 
+        //分配任务
         int lengthForAll = 0;
         for (String s : S)
             lengthForAll += s.length();

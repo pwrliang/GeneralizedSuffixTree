@@ -8,11 +8,9 @@ import java.util.*;
  * This is the implementation of Era
  */
 public class ERA implements Serializable {
-    static class TreeNode implements Serializable, Cloneable {
-        int index;//字符串S列表的索引，代表第几个串
-        int start;//串中起始位置(包括)
-        int end;//串中结束为止(不包括)
-        int suffix_index = -1;//叶子结点专用，主串中的起始位置
+    static class TreeNode {
+        String data;
+        int[] index;//[0]第几个串 [1]后缀起始位置
         TreeNode parent;
         TreeNode leftChild;
         TreeNode rightSibling;
@@ -20,21 +18,9 @@ public class ERA implements Serializable {
         private TreeNode() {
         }
 
-        private TreeNode(int index, int start, int end) {
-            this.start = start;
-            this.end = end;
+        private TreeNode(String data, int[] index) {
+            this.data = data;
             this.index = index;
-        }
-
-        @Override
-        protected TreeNode clone() {
-            TreeNode treeNode = null;
-            try {
-                treeNode = (TreeNode) super.clone();
-            } catch (CloneNotSupportedException e) {
-                e.printStackTrace();
-            }
-            return treeNode;
         }
     }
 
@@ -81,7 +67,7 @@ public class ERA implements Serializable {
      * 返回算法参数-弹性范围
      */
     private int getRangeOfSymbols(int L_) {
-        int bufferSize = 300 * 1024 * 1024;
+        int bufferSize = 100 * 1024 * 1024;
         if (L_ <= 0)
             L_ = 1;
         int range = bufferSize / L_;
@@ -271,7 +257,7 @@ public class ERA implements Serializable {
         class RPL {
             private String R;
             private int P;
-            private int[] L;
+            private int[] L;//L[0]第几个串 L[1]串的起始位置
 
 
             private RPL(int[] L) {
@@ -483,18 +469,17 @@ public class ERA implements Serializable {
         u_.parent = root;
         List<int[]> L = lb.getL();
         int[] B = lb.getB();
+        //List<int[]> L, List<Integer> B
         //L-B只有一个元素
         int[] L0 = L.get(0);
-        u_.index = L0[0];
-        u_.start = L0[1];
-        u_.end = S.get(L0[0]).length();
-        u_.suffix_index = L0[1];
-
+        String e_ = S.get(L0[0]).substring(L0[1]);
+        u_.data = e_;
+        u_.index = L0;
         Stack<TreeNode> stack = new Stack<TreeNode>();
         stack.push(u_);
         Map<TreeNode, Integer> v1Length = new HashMap<TreeNode, Integer>();//从根节点到某一结点走过的字符串的长度
         v1Length.put(root, 0);
-        int depth = u_.end - u_.start;
+        int depth = e_.length();
         for (int i = 1; i < B.length; i++) {
             int offset = B[i];//公共前缀长度common
             TreeNode v1, v2, u;
@@ -502,59 +487,60 @@ public class ERA implements Serializable {
                 TreeNode se = stack.pop();
                 v1 = se.parent;
                 v2 = se;
-                depth -= se.end - se.start;
+                depth -= se.data.length();
             } while (depth > offset);
             if (depth == offset) {
                 u = v1.leftChild;
             } else {
+                String se = v2.data;
                 //寻找根节点到v1经历了几个字符
                 int before = v1Length.get(v1);
                 int end = offset - before;//跳过根节点到v1这么长的字符
-
-                TreeNode oldV2 = v2.clone();
-                TreeNode vt = v2;
-                vt.end = vt.start + end;//前半部分(v1,vt)字符串
-                vt.suffix_index = -1;
-                v2 = new TreeNode(oldV2.index, vt.end, oldV2.end);//(vt,v2)后半部分字符串
-                //vt原来的左子树交给v2
-                if (vt.leftChild != null) {
-                    v2.leftChild = vt.leftChild;
-                    //修改v2左子树及左子树右兄弟的父节点
-                    TreeNode next = v2.leftChild;
-                    while (next != null) {
-                        next.parent = v2;
-                        next = next.rightSibling;
+                if (end > se.length()) {
+                    end = se.length();
+                }
+                v2.data = se.substring(0, end);
+                TreeNode vt = new TreeNode(se.substring(end), v2.index);
+                if (v2.leftChild != null) {
+                    vt.leftChild = v2.leftChild;
+                    //修改v2孩子的父母为vt
+                    v2.leftChild.parent = vt;
+                    TreeNode sibling = v2.leftChild;
+                    while (sibling.rightSibling != null) {
+                        sibling.rightSibling.parent = vt;
+                        sibling = sibling.rightSibling;
                     }
                 }
-                vt.leftChild = v2;
-                v2.parent = vt;
-                v2.suffix_index = oldV2.suffix_index;
-
+                v2.leftChild = vt;
+                vt.parent = v2;
+                v2.index = null;
                 //根节点到拆分形成的节点经过的字符串就是offset
-                v1Length.put(vt, offset);
-                u = v2;
-                stack.push(vt);
-                depth += vt.end - vt.start;
+                v1Length.put(v2, offset);
+                u = vt;
+                stack.push(v2);
+                depth += v2.data.length();
             }
-            //标记(u,u'),遇到终结符则停止
-            //L.get(i)+offset到末尾，存在$0则不要了
-            int[] Li = L.get(i);
-            String sLi = S.get(Li[0]);//第Li[0]个字符串
-            int start = Li[1] + offset;
-            //计算start越界后，则只保留终结符
-            u_ = new TreeNode(Li[0], start, sLi.length());
+            u_ = new TreeNode();
             TreeNode next = u;
             while (next.rightSibling != null)
                 next = next.rightSibling;
             next.rightSibling = u_;
-            u_.parent = v2.parent;
-            u_.suffix_index = Li[1];
+            u_.parent = next.parent;
+            //标记(u,u'),遇到终结符则停止
+            //L.get(i)+offset到末尾，存在$0则不要了
+            int[] Li = L.get(i);
+            String sLi = S.get(Li[0]);//第Li[0]个字符串
+            int end = Li[1] + offset;
+            //计算end越界后，则只保留终结符
+            if (end >= sLi.length())
+                end = sLi.length() - 1;
+            u_.data = sLi.substring(end);
+            u_.index = Li;
             stack.push(u_);
-            depth += u_.end - u_.start;
+            depth += u_.data.length();
         }
         return root;
     }
-
     /**
      * 新建节点，并让新建节点作为被拆节点的父节点
      *
@@ -568,18 +554,19 @@ public class ERA implements Serializable {
         StringBuilder path = new StringBuilder();
         for (int i = 0; i < p.length(); i++) {
             if (p.charAt(i) == SPLITTER || p.charAt(i) == SPLITTER_INSERTION) {
-                TreeNode newNode = new TreeNode(
-                        currNode.index, currNode.start, currNode.start + (i - lastSplit));
-                currNode.start = newNode.end;
+                String data = currNode.data;
+                TreeNode newNode = new TreeNode(data.substring(0, i - lastSplit), null);
+                currNode.data = data.substring(i - lastSplit);
                 currNode.parent.leftChild = newNode;
                 newNode.parent = currNode.parent;
                 newNode.leftChild = currNode;
                 currNode.parent = newNode;
                 //将currNode的兄弟转移给上层
-                newNode.rightSibling = currNode.rightSibling;
-                currNode.rightSibling = null;
-                String s = S.get(newNode.index);
-                path.append(s.substring(newNode.start, newNode.end));
+                if (currNode.rightSibling != null) {
+                    newNode.rightSibling = currNode.rightSibling;
+                    currNode.rightSibling = null;
+                }
+                path.append(newNode.data);
                 lastSplit = i + 1;
                 if (p.charAt(i) == SPLITTER_INSERTION) {
                     TreeNode sibling = currNode;
@@ -592,8 +579,7 @@ public class ERA implements Serializable {
                         String replaceTerminator = line.substring(0, line.length() - 1);
                         if (replaceTerminator.endsWith(path.toString())) {
                             int start = line.lastIndexOf(path.toString());
-                            TreeNode tmp = new TreeNode(j, start, line.length());
-                            tmp.suffix_index = start;
+                            TreeNode tmp = new TreeNode(line.charAt(line.length() - 1) + "", new int[]{j, start});
                             sibling.rightSibling = tmp;
                             tmp.parent = sibling.parent;
                             sibling = tmp;
@@ -603,7 +589,6 @@ public class ERA implements Serializable {
             }
         }
     }
-
     /**
      * 遍历树，并打印所有叶节点
      *
@@ -623,7 +608,8 @@ public class ERA implements Serializable {
             }
             node = stack.pop();
             if (node.leftChild == null)
-                result.add(String.format("%d %s:%d", stack.size(), terminatorFileName.get(S.get(node.index).charAt(node.end - 1)), node.suffix_index));
+
+                result.add(String.format("%d %s:%d", stack.size(), terminatorFileName.get(node.data.charAt(node.data.length() - 1)), node.index[1]));
             node = node.rightSibling;
         }
     }
