@@ -1,39 +1,19 @@
 package GST;
 
-import org.apache.hadoop.fs.*;
+import com.esotericsoftware.kryo.Kryo;
+import com.esotericsoftware.kryo.serializers.FieldSerializer;
+import org.apache.hadoop.fs.Path;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
-
-import java.io.*;
-import java.util.*;
-
+import org.apache.spark.api.java.function.FlatMapFunction;
 import org.apache.spark.api.java.function.Function;
-import org.apache.spark.api.java.function.VoidFunction;
 import org.apache.spark.broadcast.Broadcast;
+import org.apache.spark.serializer.KryoRegistrator;
 
-//垂直分区
-//Fm     range  time
-//5000 1000 data set
-//102400 1000   2.6min
-//102400 100   8.1min
-//102400 400   3.9min
-//102400 5000  3.1min
-//102400 2000  2.5min
-//102400 1500  2.7min
-//102400 800   2.7min
-//50000 1000   1.7min
-//10000 1000   1.4min
-//60000 1000   1.4min
-//30000 1000   1.2min
-//50000 1000 data set
-//50000 1000  37min
-//60000 1000  43min
-//40000 1000  80+min
-//50000 2000  21min
-//50000 3000  17min
-//50000 4000  14min
+import java.io.IOException;
+import java.util.*;
 
 /**
  * Created by Liang on 16-11-9.
@@ -44,20 +24,30 @@ public class Main {
         if (fileSize < 5000000) //5000 1000
             return 30000;
         else if (fileSize < 30000000)//50000 1000
-            return 40000;
+            return 30000;
         else if (fileSize < 50000000)//500000 20
-            return 70000;
+            return 60000;
         else if (fileSize < 80000000)//50000 5000
-            return 75000;
+            return 40000;
         else //500000 1000
-            return 150000;
+            return 60000;
     }
-
+    public static class ClassRegistrator implements KryoRegistrator {
+        public void registerClasses(Kryo kryo) {
+            kryo.register(ERA.L_B.class, new FieldSerializer(kryo, ERA.class));
+            kryo.register(ERA.TreeNode.class, new FieldSerializer(kryo, ERA.TreeNode.class));
+            kryo.register(ERA.class, new FieldSerializer(kryo, ERA.class));
+        }
+    }
     public static void main(String[] args) throws IOException, InterruptedException {
         final String inputURL = args[0];
         final String outputURL = args[1];
         SparkConf sparkConf = new SparkConf().
                 setAppName(new Path(inputURL).getName());
+        sparkConf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer");
+        sparkConf.set("spark.kryo.registrator", ClassRegistrator.class.getName());
+        sparkConf.set("spark.kryoserializer.buffer.max", "2047");
+        sparkConf.set("spark.default.parallelism", "1000");
         final JavaSparkContext sc = new JavaSparkContext(sparkConf);
         final Map<Character, String> terminatorFilename = new HashMap<Character, String>();//终结符:文件名
         final List<String> S = new ArrayList<String>();
@@ -74,33 +64,36 @@ public class Main {
             terminatorFilename.put(terminator, filename);
         }
 
+        //分配任务
         int lengthForAll = 0;
         for (String s : S)
             lengthForAll += s.length();
-        final int PARTITIONS = sc.defaultParallelism() * 4;
         int Fm = FmSelector(lengthForAll);
-
-        Set<Character> alphabet = era.getAlphabet(S);
-        System.out.println("==================Start Vertical Partition=======================");
-        Set<Set<String>> setOfVirtualTrees = era.verticalPartitioning(S, alphabet, Fm);
-        System.out.println("==================Vertical Partition Finished setOfVirtualTrees:" + setOfVirtualTrees.size() + "================");
+        Set<Character> alphabet = ERA.getAlphabet(S);//扫描串获得字母表
+        Set<Set<String>> setOfVirtualTrees = era.verticalPartitioning(S, alphabet, Fm);//开始垂直分区
         //分配任务
-        JavaRDD<Set<String>> vtRDD = sc.parallelize(new ArrayList<Set<String>>(setOfVirtualTrees), PARTITIONS);
-        final Broadcast<List<String>> broadcastS = sc.broadcast(S);
-        JavaRDD<ERA> works = vtRDD.map(new Function<Set<String>, ERA>() {
-            public ERA call(Set<String> v1) throws Exception {
-                List<String> stringList = broadcastS.value();
-                return new ERA(stringList, v1, terminatorFilename);
+        final Broadcast<List<String>> broadcastStringList = sc.broadcast(S);
+        final Broadcast<Map<Character, String>> broadcasterTerminatorFilename = sc.broadcast(terminatorFilename);
+        JavaRDD<Set<String>> vtRDD = sc.parallelize(new ArrayList<Set<String>>(setOfVirtualTrees));
+        JavaRDD<Set<String>> tmp = vtRDD.map(new Function<Set<String>, Set<String>>() {
+            public Set<String> call(Set<String> strings) throws Exception {
+                Set<String> res = new HashSet<String>();
+                List<String> mainString = broadcastStringList.value();
+                Map<Character, String> terminatorFilename = broadcasterTerminatorFilename.value();
+                for (String pi : strings) {
+                    ERA.L_B lb = era.subTreePrepare(mainString, pi);
+                    ERA.TreeNode root = era.buildSubTree(mainString, lb);
+                    era.splitSubTree(mainString, pi, root);
+                    era.traverseTree(mainString, root, terminatorFilename, res);
+                }
+                return res;
             }
         });
-//      执行任务
-        System.out.println("=====================Start Tasks============");
-        JavaRDD<String> result = works.map(new Function<ERA, String>() {
-            public String call(ERA v1) throws Exception {
-                return v1.work();
+        JavaRDD<String> resultRDD = tmp.flatMap(new FlatMapFunction<Set<String>, String>() {
+            public Iterable<String> call(Set<String> strings) throws Exception {
+                return strings;
             }
         });
-        result.saveAsTextFile(outputURL);
-        System.out.println("=====================Tasks Done============");
+        resultRDD.saveAsTextFile(outputURL);
     }
 }

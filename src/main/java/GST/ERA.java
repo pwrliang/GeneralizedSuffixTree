@@ -1,11 +1,6 @@
 package GST;
 
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
-
 import java.io.*;
-import java.net.URI;
 import java.util.*;
 
 /**
@@ -13,9 +8,9 @@ import java.util.*;
  * This is the implementation of Era
  */
 public class ERA implements Serializable {
-    private static class TreeNode {
+    static class TreeNode {
         String data;
-        int[] index;
+        int[] index;//[0]第几个串 [1]后缀起始位置
         TreeNode parent;
         TreeNode leftChild;
         TreeNode rightSibling;
@@ -29,36 +24,27 @@ public class ERA implements Serializable {
         }
     }
 
+    static class L_B implements Serializable {
+        List<int[]> L;
+        int[] B;
+
+        L_B(List<int[]> L, int[] B) {
+            this.L = L;
+            this.B = B;
+        }
+
+        List<int[]> getL() {
+            return L;
+        }
+
+        int[] getB() {
+            return B;
+        }
+    }
+
     private char terminator = 43000;//起始终结符
     private static final char SPLITTER_INSERTION = 57001;//拆分并插入叶节点
     private static final char SPLITTER = 57002;//只拆分，不插入叶节点
-
-    private List<String> S;//字符串列表
-    private Set<String> p;//pi列表
-    private Map<Character, String> terminatorFilename;//终结符-文件名映射
-
-    ERA() {
-    }
-
-    ERA(List<String> S, Set<String> p, Map<Character, String> terminatorFilename) {
-        this.S = S;
-        this.p = p;
-        this.terminatorFilename = terminatorFilename;
-    }
-
-    /**
-     * 开始建树并写入HDFS中
-     */
-    String work() throws IOException {
-        StringBuilder sb = new StringBuilder();
-        for (String Pi : p) {
-            Object[] L_B = subTreePrepare(S, Pi);
-            TreeNode root = buildSubTree((List<int[]>) L_B[0], (List<Integer>) L_B[1]);
-            splitSubTree(S, Pi, root);
-            sb.append(traverseTree(root, terminatorFilename));
-        }
-        return sb.substring(0, sb.length() - 1);
-    }
 
     /**
      * 判断字符是否为终结符
@@ -81,7 +67,7 @@ public class ERA implements Serializable {
      * 返回算法参数-弹性范围
      */
     private int getRangeOfSymbols(int L_) {
-        int bufferSize = 256 * 1024 * 1024;
+        int bufferSize = 300 * 1024 * 1024;
         if (L_ <= 0)
             L_ = 1;
         int range = bufferSize / L_;
@@ -93,7 +79,7 @@ public class ERA implements Serializable {
     /**
      * 扫描所有串，生成字母表
      */
-    Set<Character> getAlphabet(List<String> S) {
+    static Set<Character> getAlphabet(List<String> S) {
         Set<Character> alphabet = new HashSet<Character>();
         for (String line : S) {
             for (int j = 0; j < line.length() - 1; j++) {
@@ -113,8 +99,8 @@ public class ERA implements Serializable {
      */
     Set<Set<String>> verticalPartitioning(List<String> S, Set<Character> alphabet, long Fm) {
         Set<Set<String>> virtualTree = new HashSet<Set<String>>();
-        List<String> P_ = new LinkedList<String>();
-        List<String> P = new LinkedList<String>();
+        List<String> P_ = new ArrayList<String>(alphabet.size());
+        List<String> P = new ArrayList<String>(alphabet.size());
         //每个key一个队列
         Map<String, List<int[]>> rank = new HashMap<String, List<int[]>>();
         final Map<String, Long> fpiList = new HashMap<String, Long>();
@@ -227,7 +213,7 @@ public class ERA implements Serializable {
             rank.remove(piWithoutSplitter);
         }
         //sort P in decending fpi order
-        P = new LinkedList<String>(fpiList.keySet());
+        P = new ArrayList<String>(fpiList.keySet());
         Collections.sort(P, new Comparator<String>() {
             public int compare(String o1, String o2) {
                 if (fpiList.get(o1) > fpiList.get(o2))
@@ -267,23 +253,18 @@ public class ERA implements Serializable {
      * @param p 垂直分区产生的pi
      * @return 返回一个数组Object[2], Object[0]装的是L，Object[1]装的是B
      */
-    private Object[] subTreePrepare(List<String> S, String p) {
+    L_B subTreePrepare(List<String> S, String p) {
         class RPL {
             private String R;
             private int P;
-            private int[] L;
+            private int[] L;//L[0]第几个串 L[1]串的起始位置
 
 
             private RPL(int[] L) {
                 this.L = L;
             }
         }
-        List<Integer> B = new ArrayList<Integer>();
-        List<Boolean> B_defined = new ArrayList<Boolean>();
-        List<Integer> I = new ArrayList<Integer>();
         Map<Integer, Boolean> I_done = new HashMap<Integer, Boolean>();
-        List<Integer> A = new ArrayList<Integer>();
-        List<Boolean> A_done = new ArrayList<Boolean>();
         List<RPL> RPLList = new ArrayList<RPL>();
         Map<Integer, List<Integer>> activeAreaList = new HashMap<Integer, List<Integer>>();//key为活动区id，value为同一个活动区的index
 
@@ -300,26 +281,27 @@ public class ERA implements Serializable {
             }
         }
 
+        int L_ = RPLList.size();
+        int[] B = new int[RPLList.size()];
+        int[] A = new int[RPLList.size()];
+        boolean[] A_done = new boolean[RPLList.size()];
+        int[] I = new int[RPLList.size()];
         for (int i = 0; i < RPLList.size(); i++) {
-            B.add(0);
-            B_defined.add(false);
-            I.add(i);
+            I[i] = i;
             I_done.put(i, false);
-            A.add(0);
-            A_done.add(false);
             RPLList.get(i).P = i;
         }
         //一开始只有0号活动区，0号活动区的元素为0-len-1
         activeAreaList.put(0, new ArrayList<Integer>());
-        for (int i = 0; i < A.size(); i++)
+        for (int i = 0; i < A.length; i++)
             activeAreaList.get(0).add(i);
         int lastActiveAreaId = 0;
         while (true) {
             //line 8
             //假设B都定义了
             boolean defined = true;
-            for (int i = 1; i < B_defined.size(); i++) {
-                if (!B_defined.get(i)) {
+            for (int i = 1; i < B.length; i++) {
+                if (B[i] == 0) {
                     //存在未定义的B
                     defined = false;
                     break;
@@ -330,16 +312,17 @@ public class ERA implements Serializable {
             if (defined)
                 break;
 
-            int range = getRangeOfSymbols(RPLList.size());//line 9
+            int range = getRangeOfSymbols(L_);//line 9
             for (int i = 0; i < RPLList.size(); i++) {//line 10
-                if (!I_done.get(I.get(i))) {
+                if (!I_done.get(I[i])) {
                     //R[I[i]]=READRANGE(S,L[I[i]]+start,range)
-                    int[] L = RPLList.get(I.get(i)).L;
+                    int[] L = RPLList.get(I[i]).L;
                     int begin = L[1] + start;
                     int end = begin + range;
-                    if (end > S.get(L[0]).length())
-                        end = S.get(L[0]).length();
-                    RPLList.get(I.get(i)).R = S.get(L[0]).substring(begin, end);
+                    String string = S.get(L[0]);
+                    if (end > string.length())
+                        end = string.length();
+                    RPLList.get(I[i]).R = string.substring(begin, end);
                 }
             }
             ////////////Line 13-Line 15 START/////////////
@@ -348,10 +331,10 @@ public class ERA implements Serializable {
             List<RPL> beforeOrderedRPLList = new ArrayList<RPL>(RPLList);
             for (Integer aaId : activeAreaList.keySet()) {
                 //已经置done的活动区可以跳过
-                if (A_done.get(activeAreaList.get(aaId).get(0)))
+                if (A_done[activeAreaList.get(aaId).get(0)])
                     continue;
                 List<Integer> rplIndexes = activeAreaList.get(aaId);//找到同一个活动区元素的位置列表
-                List<RPL> aaRPL = new LinkedList<RPL>();//对同一个活动区，取出元素放入这里
+                List<RPL> aaRPL = new ArrayList<RPL>(rplIndexes.size());//对同一个活动区，取出元素放入这里
                 //遍历同一个活动区的每个元素，取出来加入新的列表
                 for (Integer index : rplIndexes) {
                     aaRPL.add(RPLList.get(index));
@@ -397,13 +380,13 @@ public class ERA implements Serializable {
                     //发现活动区
                     if (j != i + 1) {
                         lastActiveAreaId++;
-                        List<Integer> newActiveArea = new ArrayList<Integer>();
+                        List<Integer> newActiveArea = new ArrayList<Integer>(j - i + 1);
                         changedActiveAreaList.put(lastActiveAreaId, newActiveArea);
 
                         for (int k = i; k < j; k++) {
                             int aaIndex = rplIndexes.remove(i);
                             newActiveArea.add(aaIndex);//下表会后窜，所以都是删i
-                            A.set(aaIndex, lastActiveAreaId);
+                            A[aaIndex] = lastActiveAreaId;
                             if (rplIndexes.size() == 0)
                                 changedActiveAreaList.remove(aaId);
                         }
@@ -413,27 +396,27 @@ public class ERA implements Serializable {
                 }
             }
             activeAreaList = changedActiveAreaList;
-            List<Integer> newI = new ArrayList<Integer>(I);
-            for (int i = 0; i < I.size(); i++) {
+            int[] newI = I.clone();
+            for (int i = 0; i < I.length; i++) {
                 int j = 0;
-                while (j < I.size()) {
+                while (j < I.length) {
                     if (beforeOrderedRPLList.get(i).P == RPLList.get(j).P)
                         break;
                     j++;
                 }
                 int x = 0;
-                while (x < I.size()) {
-                    if (I.get(x) == i)
+                while (x < I.length) {
+                    if (I[x] == i)
                         break;
                     x++;
                 }
-                newI.set(x, j);
+                newI[x] = j;
             }
             I = newI;
             ////////////Line 13-Line 15 END////////
-            for (int i = 1; i < B_defined.size(); i++) {
+            for (int i = 1; i < B.length; i++) {
                 //B[i] is not defined
-                if (!B_defined.get(i)) { //line 16
+                if (B[i] == 0) { //line 16
                     //cs is the common S-prefix of R[i-1] and R[i]
                     int cs = 0;
                     String R1 = RPLList.get(i - 1).R;
@@ -447,16 +430,18 @@ public class ERA implements Serializable {
                     }
                     if (cs < range) {//line 18
                         //line 19
-                        B.set(i, start + cs);
-//                        B.set(i, new TypeB(R1.charAt(cs), R2.charAt(cs), start + cs));
-                        B_defined.set(i, true);
-                        if (B_defined.get(i - 1) || i == 1) {
-                            I_done.put(I.get(RPLList.get(i - 1).P), true);
-                            A_done.set(i - 1, true);
+                        B[i] = start + cs;
+                        if (B[i - 1] > 0 || i == 1) {
+                            I_done.put(I[RPLList.get(i - 1).P], true);
+                            A_done[i - 1] = true;
+                            RPLList.get(i - 1).R = null;
+                            L_--;
                         }
-                        if (i == RPLList.size() - 1 || B_defined.get(i + 1)) {
-                            I_done.put(I.get(RPLList.get(i).P), true);
-                            A_done.set(i, true);
+                        if (i == RPLList.size() - 1 || B[i + 1] > 0) {
+                            I_done.put(I[RPLList.get(i).P], true);
+                            A_done[i] = true;
+                            RPLList.get(i).R = null;
+                            L_--;
                         }
                     }
                 }
@@ -464,28 +449,27 @@ public class ERA implements Serializable {
             start += range;
         }
 
-        Object[] LB = new Object[2];
-        List<int[]> newL = new LinkedList<int[]>();
+        List<int[]> newL = new ArrayList<int[]>(RPLList.size());
         for (RPL rpl : RPLList)
             newL.add(rpl.L);
-        LB[0] = newL;
-        LB[1] = B;
-        return LB;
+        return new L_B(newL, B);
     }
 
     /**
      * 构建子树
      *
-     * @param L 子树准备返回的L
-     * @param B 子树准备返回的B
+     * @param lb 子树准备返回的L,B
      * @return 返回树的根节点
      */
-    private TreeNode buildSubTree(List<int[]> L, List<Integer> B) {
+    TreeNode buildSubTree(List<String> S, L_B lb) {
         TreeNode root = new TreeNode();
         TreeNode u_ = new TreeNode();
         root.parent = null;
         root.leftChild = u_;
         u_.parent = root;
+        List<int[]> L = lb.getL();
+        int[] B = lb.getB();
+        //List<int[]> L, List<Integer> B
         //L-B只有一个元素
         int[] L0 = L.get(0);
         String e_ = S.get(L0[0]).substring(L0[1]);
@@ -496,8 +480,8 @@ public class ERA implements Serializable {
         Map<TreeNode, Integer> v1Length = new HashMap<TreeNode, Integer>();//从根节点到某一结点走过的字符串的长度
         v1Length.put(root, 0);
         int depth = e_.length();
-        for (int i = 1; i < B.size(); i++) {
-            int offset = B.get(i);//公共前缀长度common
+        for (int i = 1; i < B.length; i++) {
+            int offset = B[i];//公共前缀长度common
             TreeNode v1, v2, u;
             do {
                 TreeNode se = stack.pop();
@@ -557,57 +541,6 @@ public class ERA implements Serializable {
         }
         return root;
     }
-
-    /**
-     * 拆法1，对被拆节点位置不变，新建节点，把被拆节点信息转移到新节点上，新节点作为被拆节点的左孩子
-     *
-     * @param S    字符串列表
-     * @param p    垂直分区产生的pi
-     * @param root 构建子树产生的根节点
-     */
-    private void splitSubTreeEx(List<String> S, String p, TreeNode root) {
-        TreeNode currNode = root.leftChild;
-        int lastSplit = 0;
-        StringBuilder path = new StringBuilder();
-        for (int i = 0; i < p.length(); i++) {
-            if (p.charAt(i) == SPLITTER || p.charAt(i) == SPLITTER_INSERTION) {
-                String data = currNode.data;
-                //建立一个新节点，将被拆分节点的信息转移给新节点
-                TreeNode newNode = new TreeNode(data.substring(i - lastSplit), currNode.index);
-                currNode.index = null;
-                path.append(data.substring(0, i - lastSplit));
-                currNode.data = data.substring(0, i - lastSplit);
-                if (currNode.leftChild != null) {//将原currNode的孩子节点作为新节点的孩子
-                    newNode.leftChild = currNode.leftChild;
-                    newNode.leftChild.parent = newNode;
-                }
-                newNode.parent = currNode;
-                currNode.leftChild = newNode;
-
-                currNode = newNode;
-                lastSplit = i + 1;
-                if (p.charAt(i) == SPLITTER_INSERTION) {
-                    TreeNode sibling = currNode;
-                    while (sibling.rightSibling != null) {
-                        sibling = sibling.rightSibling;
-                    }
-                    for (int j = 0; j < S.size(); j++) {
-                        String line = S.get(j);
-                        //对于以path结尾的串，则插入叶节点
-                        String replaceTerminator = line.substring(0, line.length() - 1);
-                        if (replaceTerminator.endsWith(path.toString())) {
-                            int start = line.lastIndexOf(path.toString());
-                            TreeNode tmp = new TreeNode(line.charAt(line.length() - 1) + "", new int[]{j, start});
-                            sibling.rightSibling = tmp;
-                            tmp.parent = sibling.parent;
-                            sibling = tmp;
-                        }
-                    }
-                }
-            }
-        }
-    }
-
     /**
      * 新建节点，并让新建节点作为被拆节点的父节点
      *
@@ -615,7 +548,7 @@ public class ERA implements Serializable {
      * @param p    垂直分区产生的pi
      * @param root 构建子树产生的根节点
      */
-    private void splitSubTree(List<String> S, String p, TreeNode root) {
+    void splitSubTree(List<String> S, String p, TreeNode root) {
         TreeNode currNode = root.leftChild;
         int lastSplit = 0;
         StringBuilder path = new StringBuilder();
@@ -656,7 +589,6 @@ public class ERA implements Serializable {
             }
         }
     }
-
     /**
      * 遍历树，并打印所有叶节点
      *
@@ -664,23 +596,21 @@ public class ERA implements Serializable {
      * @param terminatorFileName 终结符-文件名对应列表
      * @return 返回一棵树所有叶节点遍历结果
      */
-    private String traverseTree(TreeNode root, Map<Character, String> terminatorFileName) {
+    void traverseTree(List<String> S, TreeNode root, Map<Character, String> terminatorFileName, Set<String> result) {
         Stack<TreeNode> stack = new Stack<TreeNode>();
         TreeNode node = root;
-        StringBuilder sb = new StringBuilder();
         if (root == null)
-            return null;
+            return;
         while (node != null || !stack.isEmpty()) {
             while (node != null) {
                 stack.push(node);
                 node = node.leftChild;
             }
             node = stack.pop();
-            if (node.leftChild == null) {
-                sb.append(String.format("%d %s:%d\n", stack.size(), terminatorFileName.get(node.data.charAt(node.data.length() - 1)), node.index[1]));
-            }
+            if (node.leftChild == null)
+
+                result.add(String.format("%d %s:%d", stack.size(), terminatorFileName.get(node.data.charAt(node.data.length() - 1)), node.index[1]));
             node = node.rightSibling;
         }
-        return sb.toString();
     }
 }
