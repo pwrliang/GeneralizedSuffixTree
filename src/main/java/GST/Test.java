@@ -24,14 +24,18 @@ public class Test {
         File files = new File(path);
         for (File file : files.listFiles()) {
             BufferedReader reader = new BufferedReader(new FileReader(file));
-            map.put(file.getName(), reader.readLine());
+            StringBuilder sb = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null)
+                sb.append(line);
+            map.put(file.getName(), sb.toString());
             reader.close();
         }
     }
 
     public static void main(String[] args) throws IOException {
         final ERA era = new ERA();
-        final String inputURL = "C:\\Users\\Liang\\Documents\\input\\5000 1000";
+        final String inputURL = "D:\\Contest\\exset\\ex3";
         final Map<Character, String> terminatorFilename = new HashMap<Character, String>();//终结符:文件名
         final List<String> S = new ArrayList<String>();
 
@@ -45,40 +49,36 @@ public class Test {
             S.add(dataSet.get(filename) + terminator);//append terminator to the end of text
             terminatorFilename.put(terminator, filename);
         }
-//
         int lengthForAll = 0;
         for (String s : S)
             lengthForAll += s.length();
         int Fm = FmSelector(lengthForAll);
         Set<Character> alphabet = ERA.getAlphabet(S);//扫描串获得字母表
-//        {
-//            long start = System.currentTimeMillis();
-//            Set<Set<String>> setOfVirtualTrees = era.verticalPartitioning(S, alphabet, Fm);//开始垂直分区
-//            System.out.println("normal:" + (System.currentTimeMillis() - start));
-//        }
-        {
-            Set<Set<String>> setOfVirtualTrees = era.verticalPartitioningAlpha(S, alphabet, Fm, 100);//开始垂直分区
-            long start = System.currentTimeMillis();
-            for (Set<String> piSet : setOfVirtualTrees) {
-                for (String pi : piSet) {
-                    ERA.L_B lb = era.subTreePrepare(S, pi);
-                    ERA.TreeNode root = era.buildSubTree(S, lb);
-                    era.splitSubTree(S, pi, root);
-//                    System.out.println(pi);
-                }
+//            Set<Set<String>> setOfVirtualTrees = era.verticalPartitioningAlpha(S, alphabet, Fm, 100);//开始垂直分区
+        Set<Set<String>> setOfVirtualTrees = era.verticalPartitioning(S, alphabet, Fm);//开始垂直分区
+        long start = System.currentTimeMillis();
+        Set<String> result = new HashSet<String>();
+        for (Set<String> piSet : setOfVirtualTrees) {
+            for (String pi : piSet) {
+                ERA.L_B lb = era.subTreePrepareAlpha(S, pi);
+                ERA.TreeNode root = era.buildSubTree(S, lb);
+                era.splitSubTree(S, pi, root);
+                era.traverseTree(S, root, terminatorFilename, result);
             }
-            System.out.println(System.currentTimeMillis() - start);
-            System.out.println("line1-7 " + era.line1_7);
-            System.out.println("line9-12 " + era.line9_12);
-            System.out.println("line13-15 " + era.line13_15);
-            System.out.println("sortR " + era.sortR);
-            System.out.println("maintainI " + era.maintainI);
-            System.out.println("line16-24 " + era.line16_24);
-            System.out.println("copy " + era.lineCopy);
         }
+//        System.out.println(System.currentTimeMillis() - start);
+        for (String s : result)
+            System.out.println(s);
+//        System.out.println("line1-7 " + era.line1_7);
+//        System.out.println("line9-12 " + era.line9_12);
+//        System.out.println("line13-15 " + era.line13_15);
+//        System.out.println("sortR " + era.sortR);
+//        System.out.println("maintainI " + era.maintainI);
+//        System.out.println("line16-24 " + era.line16_24);
+//        System.out.println("copy " + era.lineCopy);
 //        List<String> strings = new ArrayList<String>();
-//        strings.add("TGGTGGTGGTGCGGTGATGGTGC"+era.nextTerminator());
-//        era.subTreePrepare(strings,"TG");
+//        strings.add("TGGTGGTGGTGCGGTGATGGTGC" + era.nextTerminator());
+//        ERA.L_B lb = era.subTreePrepareAlpha(strings, "TG");
 //        era.subTreePrepareAlpha(strings,"TG");
     }
 }

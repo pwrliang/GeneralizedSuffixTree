@@ -105,6 +105,7 @@ public class ERA implements Serializable {
 
     Map<String, Long> fpiList = new HashMap<String, Long>();
 
+
     /**
      * 垂直分区
      *
@@ -119,7 +120,7 @@ public class ERA implements Serializable {
         List<String> P = new ArrayList<String>(alphabet.size());
         //每个key一个队列
         Map<String, List<int[]>> rank = new HashMap<String, List<int[]>>();
-
+        final Map<String, Long> fpiList = new HashMap<String, Long>();
 
         //如果c是原生类型，就用+""转换，如果c是包装类型，就用toString
         for (Character s : alphabet)
@@ -897,19 +898,23 @@ public class ERA implements Serializable {
 
         int LSize = RPLList.size();
         int[] B = new int[LSize];
-        int[] A = new int[LSize];
+        boolean[] Adone = new boolean[LSize];
         int[] I = new int[LSize];
+        int[] originP = new int[LSize];
+        List<Integer> initAAIndex = new ArrayList<Integer>();//活动区0对应的编号列表
+        Map<Integer, List<Integer>> AAList = new HashMap<Integer, List<Integer>>();//key为活动区id，value为同一个活动区的index
         List<Integer> undefinedB = new ArrayList<Integer>(LSize);//未定义的B
         for (int i = 0; i < LSize; i++) {
             I[i] = i;
-            A[i] = 0;
             RPLList.get(i).P = i;
+            originP[i] = i;
             undefinedB.add(i);
+            initAAIndex.add(i);//0号活动区对应的ID
         }
+        AAList.put(0, initAAIndex);//添加0号活动区
         undefinedB.remove(0);
         //一开始只有0号活动区，0号活动区的元素为0-len-1
         int lastActiveAreaId = 0;
-        List<RPL> beforeSort = new ArrayList<RPL>(RPLList.subList(0, LSize));
         while (true) {
             if (undefinedB.size() == 0)
                 break;
@@ -930,63 +935,58 @@ public class ERA implements Serializable {
                 }
             }
             ////////////Line 13-Line 15 START/////////////
-            //遍历每个活动区
-            //假设活动区一次都会被done
-            for (int i = 0; i < A.length; i++) {
-                if (A[i] == -1)//跳过为done的活动区
-                    continue;
-                int aaStart = i;//活动区起始位置
-                int aaEnd = aaStart + 1;//活动区结束位置
-                while (aaEnd < A.length) { //循环结束时A[aaEnd]!=A[aaStart]
-                    if (A[aaEnd] != A[aaStart])
-                        break;
-                    aaEnd++;
+            Map<Integer, List<Integer>> newAAList = new HashMap<Integer, List<Integer>>(AAList);
+            for (Integer AAId : AAList.keySet()) {//遍历每个活动区
+                //如果活动区中有任意被done的（我猜一个done则该活动区所有元素都done）
+                try {
+                    if (Adone[AAList.get(AAId).get(0)])
+                        continue;
+                } catch (Exception e) {
+                    e.printStackTrace();
                 }
-                if (aaEnd == aaStart + 1) {//aaStart与aaEnd是两个相邻元素，且不等
-                    continue;//则aaStart前进一步
-                } else {
-                    //对于aaStart到aaEnd这片区域进行排序和维护I
-
-                    //aaStart与aaEnd之间超过两个元素，该范围内是活动区，对其排序
-                    Collections.sort(RPLList.subList(aaStart, aaEnd), RPLComparator);
-                    int[] newI = I.clone();
-                    for (int j = 0; j < beforeSort.size(); j++) {
-                        //维护I
-                        int offset = aaStart;//找到排序之前的位置
-                        for (; offset < aaEnd; offset++) {
-                            if (beforeSort.get(j).P == RPLList.get(offset).P)
-                                break;
-                        }
-                        newI[aaStart + j] = aaStart + offset;
-                        //维护I
+                List<Integer> indexList = AAList.get(AAId);//AAId活动区拥有的index
+                List<RPL> subRPLList = new ArrayList<RPL>(indexList.size());
+                for (Integer index : indexList)//将该活动区的所有元素copy到subRPLList
+                    subRPLList.add(RPLList.get(index));
+                Collections.sort(subRPLList, RPLComparator);//对subRPLList进行排序
+                for (int i = 0; i < indexList.size(); i++)//把排序好的RPL回填
+                    RPLList.set(indexList.get(i), subRPLList.get(i));
+                int[] newI = I.clone();//开始维护I列表
+                for (Integer index : indexList) {
+                    RPL rpl = RPLList.get(index);
+//                    int i = 0;
+//                    for (; i < originP.length; i++)
+//                        if (rpl.P == originP[i])
+//                            break;
+//                    newI[i] = index;
+                    I[rpl.P] = index;
+                }
+//                I = newI;
+                for (int i = 0; i < indexList.size(); ) {
+                    int index = indexList.get(i);
+                    int j = i + 1;
+                    while (j < indexList.size()) {
+                        int indexJ = indexList.get(j);
+                        if (!RPLList.get(index).R.equals(RPLList.get(indexJ).R))
+                            break;
+                        j++;
                     }
-                    I = newI;
-                    i = aaEnd;
+                    if (j != i + 1) {//发现活动区
+                        List<Integer> newAA = new ArrayList<Integer>(j - i);
+                        for (int k = i; k < j; k++) {//将R相同的元素从旧活动区移除，加入新的活动区
+                            newAA.add(indexList.remove(i));
+                            if (indexList.size() == 0)
+                                newAAList.remove(AAId);
+                        }
+                        if (newAA.size() == 0)
+                            System.out.println();
+                        newAAList.put(++lastActiveAreaId, newAA);
+                    } else
+                        i = j;
                 }
             }
-            boolean stateEqual = false;
-            for (int j = 0; j < A.length - 1; j++) {
-                if (A[j] == -1)
-                    continue;
-                //初态相邻两个不相等
-                //相等-》不相等
-                if (!stateEqual && RPLList.get(j).R.equals(RPLList.get(j + 1).R)) {
-                    stateEqual = true;
-                    lastActiveAreaId++;
-                    A[j] = lastActiveAreaId;
-                    A[j + 1] = lastActiveAreaId;
-                } else if (stateEqual && !RPLList.get(j).R.equals(RPLList.get(j + 1).R)) {
-                    stateEqual = false;
-                    A[j] = lastActiveAreaId;
-                    lastActiveAreaId++;
-                    //处理最后一个元素
-                    if (j + 1 == A.length - 1)
-                        A[j + 1] = lastActiveAreaId;
-                } else {
-                    A[j] = lastActiveAreaId;
-                    A[j + 1] = lastActiveAreaId;
-                }
-            }
+            AAList = newAAList;
+            ////////////Line 13-Line 15 END/////////////
             for (int ind = undefinedB.size() - 1; ind >= 0; ind--) {
                 int i = undefinedB.get(ind);
                 //B[i] is not defined
@@ -1007,20 +1007,22 @@ public class ERA implements Serializable {
                     undefinedB.remove(ind);
                     if (B[i - 1] > 0 || i == 1) {
                         I[RPLList.get(i - 1).P] = -1;
-                        A[i - 1] = -1;
+                        Adone[i - 1] = true;
                         RPLList.get(i - 1).R = null;
                     }
                     if (i == RPLList.size() - 1 || B[i + 1] > 0) {
                         I[RPLList.get(i).P] = -1;
-                        A[i] = -1;
+                        Adone[i] = true;
                         RPLList.get(i).R = null;
                     }
                 }
             }
             start += range;
         }
-//        return new L_B(L, B);
-        return null;
+        List<int[]> newL = new ArrayList<int[]>(RPLList.size());
+        for (RPL rpl : RPLList)
+            newL.add(new int[]{rpl.index, rpl.L});
+        return new L_B(newL, B);
     }
 
     /**
