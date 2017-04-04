@@ -103,6 +103,8 @@ public class ERA implements Serializable {
         return alphabet;
     }
 
+    Map<String, Long> fpiList = new HashMap<String, Long>();
+
     /**
      * 垂直分区
      *
@@ -117,7 +119,7 @@ public class ERA implements Serializable {
         List<String> P = new ArrayList<String>(alphabet.size());
         //每个key一个队列
         Map<String, List<int[]>> rank = new HashMap<String, List<int[]>>();
-        final Map<String, Long> fpiList = new HashMap<String, Long>();
+
 
         //如果c是原生类型，就用+""转换，如果c是包装类型，就用toString
         for (Character s : alphabet)
@@ -260,6 +262,158 @@ public class ERA implements Serializable {
         return virtualTree;
     }
 
+    Set<Set<String>> verticalPartitioningAlpha(List<String> S, Set<Character> alphabet, long Fm, int maxLen) {
+        Set<Set<String>> virtualTree = new HashSet<Set<String>>();
+        List<String> P_ = new ArrayList<String>(alphabet.size());
+        List<String> P = new ArrayList<String>(alphabet.size());
+        //每个key一个队列
+        Map<String, List<int[]>> rank = new HashMap<String, List<int[]>>();
+
+
+        //如果c是原生类型，就用+""转换，如果c是包装类型，就用toString
+        for (Character s : alphabet)
+            P_.add(s.toString());
+
+        //将下标i插入对应RankS[i]队列中
+
+        for (int i = 0; i < S.size(); i++) {
+            String line = S.get(i);
+            //len-1跳过每行终结符
+            for (int j = 0; j < line.length() - 1; j++) {
+                String queueName = line.charAt(j) + "";
+                List<int[]> queue = rank.get(queueName);
+                if (queue == null) {
+                    queue = new ArrayList<int[]>();
+                    rank.put(queueName, queue);
+                }
+                int[] pos = new int[]{i, j};//i为第几个串，j为第i个串的起始位置
+                queue.add(pos);
+            }
+        }
+
+        //////////////
+        while (!P_.isEmpty()) {
+            String pi = P_.remove(0);//第一个元素总要被删，一开始就删了吧
+            //SPLITTER+""转换成String要比new Character(SPLITTER).toString()快
+            String piWithoutSplitter = pi.replace(SPLITTER + "", "").replace(SPLITTER_INSERTION + "", "");
+            long fpi = rank.get(piWithoutSplitter).size();
+            if (fpi > 0 && fpi <= Fm) {
+                P.add(pi);
+                fpiList.put(pi, fpi);
+            } else if (fpi > Fm) {
+                boolean _insert = false;
+
+                for (Character s : alphabet) {
+                    rank.put(piWithoutSplitter + s, new ArrayList<int[]>());
+                }
+                //这里j为RankPi的元素值
+                List<int[]> piIndexes = rank.get(piWithoutSplitter);
+
+                if (piIndexes.size() == 1) {
+                    int[] index = piIndexes.get(0);
+                    P_.add(pi + S.get(index[0]).charAt(index[1] + 1));
+                } else {
+                    for (int[] j : piIndexes) {
+                        char id = S.get(j[0]).charAt(j[1] + 1);
+                        //是终结符，把break置为true
+                        if (isTerminator(id))
+                            _insert = true;
+                        else
+                            rank.get(piWithoutSplitter + id).add(new int[]{j[0], j[1] + 1});
+                    }
+                    if (_insert) {
+                        //解决拆分后重复的问题
+                        boolean firstNoEmpty = false;
+                        for (Character c : alphabet) {
+                            String queueName = piWithoutSplitter + c;
+                            //对于第一个非空队列，使用拆分、插入标记
+                            //对于其他的使用拆分标记
+                            if (rank.get(queueName).size() > 0) {
+                                if (!firstNoEmpty) {
+                                    P_.add(pi + SPLITTER_INSERTION + c);
+                                    firstNoEmpty = true;
+                                    //引入一个拆分插入符号后，修改pi，下次循环使用拆分符
+                                    pi = pi.replace(SPLITTER_INSERTION, SPLITTER);
+                                } else {
+                                    //对于其他元素，使用拆分标记
+                                    P_.add(pi + SPLITTER + c);
+                                }
+                            }
+                        }
+                    } else {
+                        //修复部分节点多拆分的问题
+                        int count = 0;
+                        for (Character c : alphabet) {
+                            if (rank.get(piWithoutSplitter + c).size() > 0) {
+                                count++;
+                                //优化
+                                if (count > 1)
+                                    break;
+                            }
+                        }
+                        if (count > 1) {
+                            boolean firstNoEmpty = false;
+                            for (Character c : alphabet) {
+                                String queueName = piWithoutSplitter + c;
+                                if (rank.get(queueName).size() > 0) {
+                                    //这里对于第一个非空使用SPLITTER_INSERTION，扩展其他使用SPLITTER
+                                    if (!firstNoEmpty) {
+                                        P_.add(pi + SPLITTER + c);
+                                        firstNoEmpty = true;
+                                        pi = pi.replace(SPLITTER_INSERTION, SPLITTER);
+                                    } else {
+                                        P_.add(pi + SPLITTER + c);
+                                    }
+                                }
+                            }
+                        } else {
+                            for (Character c : alphabet) {
+                                if (rank.get(piWithoutSplitter + c).size() > 0)
+                                    P_.add(pi + c);
+                            }
+                        }
+                    }
+                }
+            }
+            rank.remove(piWithoutSplitter);
+        }
+        //sort P in decending fpi order
+        P = new ArrayList<String>(fpiList.keySet());
+        Collections.sort(P, new Comparator<String>() {
+            public int compare(String o1, String o2) {
+                if (fpiList.get(o1) > fpiList.get(o2))
+                    return -1;
+                else if (fpiList.get(o1).equals(fpiList.get(o2)))
+                    return 0;
+                else return 1;
+            }
+        });
+        ////////////////////////
+        do {
+            Set<String> G = new HashSet<String>();
+            //add P.head to G and remove the item from P
+            G.add(P.remove(0));
+            for (int i = 0; i < P.size(); i++) {
+                String sCurr = P.get(i);
+                int sumG = 0;
+                for (String gi : G) {
+                    sumG += fpiList.get(gi);
+                }
+                if (fpiList.get(sCurr) + sumG <= Fm) {
+                    //add curr to G and remove the item from P
+                    G.add(sCurr);
+                    P.remove(i);
+                    i--;
+                    if (G.size() >= maxLen)
+                        break;
+                }
+            }
+            virtualTree.add(G);
+        } while (!P.isEmpty());
+        return virtualTree;
+    }
+
+
     /**
      * 子树准备
      *
@@ -326,9 +480,9 @@ public class ERA implements Serializable {
             if (defined)
                 break;
 
-            int range = getRangeOfSymbols(L_);//line 9
-            for (int i = 0; i < RPLList.size(); i++) {//line 10
-                if (!I_done.get(I[i])) {
+            int range = 4;//getRangeOfSymbols(L_);//line 9
+            for (int i : I_done.keySet()) {//line 10
+                if (!I_done.get(i)) {
                     //R[I[i]]=READRANGE(S,L[I[i]]+start,range)
                     int[] L = RPLList.get(I[i]).L;
                     int begin = L[1] + start;
@@ -410,7 +564,7 @@ public class ERA implements Serializable {
                 }
             }
             activeAreaList = changedActiveAreaList;
-            int[] newI = I.clone();
+            int[] newI = new int[I.length];
             for (int i = 0; i < I.length; i++) {
                 int j = 0;
                 while (j < I.length) {
@@ -418,15 +572,223 @@ public class ERA implements Serializable {
                         break;
                     j++;
                 }
-                int x = 0;
-                while (x < I.length) {
-                    if (I[x] == i)
-                        break;
-                    x++;
-                }
-                newI[x] = j;
+                newI[i] = j;
             }
             I = newI;
+            ////////////Line 13-Line 15 END////////
+            for (int i = 1; i < B.length; i++) {
+                //B[i] is not defined
+                if (B[i] == 0) { //line 16
+                    //cs is the common S-prefix of R[i-1] and R[i]
+                    int cs = 0;
+                    String R1 = RPLList.get(i - 1).R;
+                    String R2 = RPLList.get(i).R;
+                    for (int j = 0; j < Math.min(R1.length(), R2.length()); j++) {
+                        //R1与R2的字符相等
+                        if (R1.charAt(j) == R2.charAt(j)) {
+                            cs++;
+                        } else
+                            break;
+                    }
+                    if (cs < range) {//line 18
+                        //line 19
+                        B[i] = start + cs;
+                        if (B[i - 1] > 0 || i == 1) {
+                            I_done.put(RPLList.get(i - 1).P, true);
+                            A_done[i - 1] = true;
+                            RPLList.get(i - 1).R = null;
+                            L_--;
+                        }
+                        if (i == RPLList.size() - 1 || B[i + 1] > 0) {
+                            I_done.put(RPLList.get(i).P, true);
+                            A_done[i] = true;
+                            RPLList.get(i).R = null;
+                            L_--;
+                        }
+                    }
+                }
+            }
+            start += range;
+        }
+
+        List<int[]> newL = new ArrayList<int[]>(RPLList.size());
+        for (RPL rpl : RPLList)
+            newL.add(rpl.L);
+        return new L_B(newL, B);
+    }
+
+    /**
+     * 子树准备
+     *
+     * @param S 字符串列表
+     * @param p 垂直分区产生的pi
+     * @return 返回一个数组Object[2], Object[0]装的是L，Object[1]装的是B
+     */
+    L_B subTreePrepareBeta(List<String> S, String p) {
+        class RPL {
+            private String R;
+            private int P;
+            private int[] L;
+
+
+            private RPL(int[] L) {
+                this.L = L;
+            }
+        }
+        Map<Integer, Boolean> I_done = new HashMap<Integer, Boolean>();
+        List<RPL> RPLList = new ArrayList<RPL>();
+        Map<Integer, List<Integer>> activeAreaList = new HashMap<Integer, List<Integer>>();//key为活动区id，value为同一个活动区的index
+
+        p = p.replace(SPLITTER_INSERTION + "", "").replace(SPLITTER + "", "");//去掉分割标记
+        int start = p.length();
+        //Line 1:L contains the locations of S-prefix p in string S
+        for (int i = 0; i < S.size(); i++) {
+            String line = S.get(i);
+            int index = line.indexOf(p);
+            while (index != -1) {
+                //初始化L
+                RPLList.add(new RPL(new int[]{i, index}));
+                index = line.indexOf(p, index + 1);
+            }
+        }
+
+        int L_ = RPLList.size();
+        int[] B = new int[RPLList.size()];
+        int[] A = new int[RPLList.size()];
+        boolean[] A_done = new boolean[RPLList.size()];
+        int[] I = new int[RPLList.size()];
+        for (int i = 0; i < RPLList.size(); i++) {
+            I[i] = i;
+            I_done.put(i, false);
+            RPLList.get(i).P = i;
+        }
+        //一开始只有0号活动区，0号活动区的元素为0-len-1
+        activeAreaList.put(0, new ArrayList<Integer>());
+        for (int i = 0; i < A.length; i++)
+            activeAreaList.get(0).add(i);
+        int lastActiveAreaId = 0;
+        while (true) {
+            //line 8
+            //假设B都定义了
+            boolean defined = true;
+            for (int i = 1; i < B.length; i++) {
+                if (B[i] == 0) {
+                    //存在未定义的B
+                    defined = false;
+                    break;
+                }
+            }
+            //line 8
+            //B都定义了
+            if (defined)
+                break;
+
+            int range = getRangeOfSymbols(L_);//line 9
+            for (int i = 0; i < RPLList.size(); i++) {//line 10
+                if (!I_done.get(I[i])) {
+                    //R[I[i]]=READRANGE(S,L[I[i]]+start,range)
+                    int[] L = RPLList.get(I[i]).L;
+                    int begin = L[1] + start;
+                    int end = begin + range;
+                    String string = S.get(L[0]);
+                    if (end > string.length())
+                        end = string.length();
+                    RPLList.get(I[i]).R = string.substring(begin, end);
+                }
+            }
+            ////////////Line 13-Line 15 START/////////////
+            //遍历每个活动区
+            Map<Integer, List<Integer>> changedActiveAreaList = new HashMap<Integer, List<Integer>>(activeAreaList);
+            List<RPL> beforeOrderedRPLList = new ArrayList<RPL>(RPLList);
+            for (Integer aaId : activeAreaList.keySet()) {
+                //已经置done的活动区可以跳过
+                if (A_done[activeAreaList.get(aaId).get(0)]) {
+                    System.out.println("跳过！！！！！！！！！！！");
+                    continue;
+                }
+                List<Integer> rplIndexes = activeAreaList.get(aaId);//找到同一个活动区元素的位置列表
+                List<RPL> aaRPL = new ArrayList<RPL>(rplIndexes.size());//对同一个活动区，取出元素放入这里
+                //遍历同一个活动区的每个元素，取出来加入新的列表
+                for (Integer index : rplIndexes) {
+                    aaRPL.add(RPLList.get(index));
+                }
+                //对取出来的RPL根据R排序
+                Collections.sort(aaRPL, new Comparator<RPL>() {
+                    /*
+                      * if s1>s2 return 1 else if s1<s2 return -1 else return 0
+                      * */
+                    int myCompare(String s1, String s2) {
+                        int end = Math.min(s1.length(), s2.length());
+                        for (int i = 0; i < end; i++) {
+                            char c1 = s1.charAt(i);
+                            char c2 = s2.charAt(i);
+                            if (c1 != c2) {
+                                if (isTerminator(c1) && !isTerminator(c2))
+                                    return 1;
+                                else if (!isTerminator(c1) && isTerminator(c2))
+                                    return -1;
+                                else if (isTerminator(c1) && isTerminator(c2) || !isTerminator(c1) && !isTerminator(c2))
+                                    return c1 > c2 ? 1 : -1;
+                            }
+                        }
+                        return 0;
+                    }
+
+                    public int compare(RPL o1, RPL o2) {
+                        return myCompare(o1.R, o2.R);
+                    }
+                });
+                //将排序好的RPL回填到RPLList中
+                int i = 0;
+                for (Integer index : rplIndexes) {
+                    RPLList.set(index, aaRPL.get(i++));
+                }
+                int[] newI = I.clone();
+                for (Integer ind : rplIndexes) {
+                    int tmp = 0;
+                    for (Integer j : rplIndexes) {
+                        if (beforeOrderedRPLList.get(ind).P == RPLList.get(j).P) {
+                            tmp = j;
+                            break;
+                        }
+                    }
+                    int x = 0;
+                    for (Integer j : rplIndexes) {
+                        if (I[j] == ind) {
+                            x = j;
+                            break;
+                        }
+                    }
+                    newI[x] = tmp;
+                }
+                I = newI;
+
+                i = 0;
+                //寻找活动区
+                while (i < rplIndexes.size()) {
+                    int j = i + 1;
+                    while (j < rplIndexes.size() && RPLList.get(rplIndexes.get(i)).R.equals(RPLList.get(rplIndexes.get(j)).R)) {
+                        j++;
+                    }
+                    //发现活动区
+                    if (j != i + 1) {
+                        lastActiveAreaId++;
+                        List<Integer> newActiveArea = new ArrayList<Integer>(j - i + 1);
+                        changedActiveAreaList.put(lastActiveAreaId, newActiveArea);
+
+                        for (int k = i; k < j; k++) {
+                            int aaIndex = rplIndexes.remove(i);
+                            newActiveArea.add(aaIndex);//下表会后窜，所以都是删i
+                            A[aaIndex] = lastActiveAreaId;
+                            if (rplIndexes.size() == 0)
+                                changedActiveAreaList.remove(aaId);
+                        }
+                    } else {
+                        i = j;
+                    }
+                }
+            }
+            activeAreaList = changedActiveAreaList;
             ////////////Line 13-Line 15 END////////
             for (int i = 1; i < B.length; i++) {
                 //B[i] is not defined
@@ -467,6 +829,198 @@ public class ERA implements Serializable {
         for (RPL rpl : RPLList)
             newL.add(rpl.L);
         return new L_B(newL, B);
+    }
+
+    long line1_7, line9_12, line13_15, line16_24, lineCopy;
+    long sortR, maintainI;
+
+    private final Comparator<RPL> RPLComparator = new Comparator<RPL>() {
+        /*
+          * if s1>s2 return 1 else if s1<s2 return -1 else return 0
+          * */
+        int myCompare(String s1, String s2) {
+            int end = Math.min(s1.length(), s2.length());
+            for (int i = 0; i < end; i++) {
+                char c1 = s1.charAt(i);
+                char c2 = s2.charAt(i);
+                if (c1 != c2) {
+                    if (isTerminator(c1) && !isTerminator(c2))
+                        return 1;
+                    else if (!isTerminator(c1) && isTerminator(c2))
+                        return -1;
+                    else if (isTerminator(c1) && isTerminator(c2) || !isTerminator(c1) && !isTerminator(c2))
+                        return c1 > c2 ? 1 : -1;
+                }
+            }
+            return 0;
+        }
+
+        public int compare(RPL o1, RPL o2) {
+            return myCompare(o1.R, o2.R);
+        }
+    };
+
+    class RPL {
+        String R;
+        int P;
+        int L;//第index串的起始位置
+        int index;//第几个串
+
+        RPL(int index, int L) {
+            this.index = index;
+            this.L = L;
+        }
+    }
+
+    /**
+     * 子树准备
+     *
+     * @param S 字符串列表
+     * @param p 垂直分区产生的pi
+     * @return 返回一个数组Object[2], Object[0]装的是L，Object[1]装的是B
+     */
+    L_B subTreePrepareAlpha(List<String> S, String p) {
+
+        List<RPL> RPLList = new ArrayList<RPL>();
+        p = p.replace(SPLITTER_INSERTION + "", "").replace(SPLITTER + "", "");//去掉分割标记
+        int start = p.length();
+        //Line 1:L contains the locations of S-prefix p in string S
+        for (int index = 0; index < S.size(); index++) {//遍历所有串
+            String line = S.get(index);
+            int L = line.indexOf(p);//寻找后缀的的前缀起始位置作为leaf
+            while (L != -1) {
+                //初始化L
+                RPLList.add(new RPL(index, L));
+                L = line.indexOf(p, L + 1);
+            }
+        }
+
+        int LSize = RPLList.size();
+        int[] B = new int[LSize];
+        int[] A = new int[LSize];
+        int[] I = new int[LSize];
+        List<Integer> undefinedB = new ArrayList<Integer>(LSize);//未定义的B
+        for (int i = 0; i < LSize; i++) {
+            I[i] = i;
+            A[i] = 0;
+            RPLList.get(i).P = i;
+            undefinedB.add(i);
+        }
+        undefinedB.remove(0);
+        //一开始只有0号活动区，0号活动区的元素为0-len-1
+        int lastActiveAreaId = 0;
+        List<RPL> beforeSort = new ArrayList<RPL>(RPLList.subList(0, LSize));
+        while (true) {
+            if (undefinedB.size() == 0)
+                break;
+
+            int range = 4;//getRangeOfSymbols(remainingLeaves);//line 9
+            for (int i = 0; i < LSize; i++) {//line 10
+                if (I[i] != -1) {
+                    //R[I[i]]=READRANGE(S,L[I[i]]+start,range)
+                    RPL rpl = RPLList.get(I[i]);
+                    int index = rpl.index;
+                    int L = rpl.L;
+                    int begin = L + start;
+                    int end = begin + range;
+                    String string = S.get(index);
+                    if (end > string.length())
+                        end = string.length();
+                    rpl.R = string.substring(begin, end);
+                }
+            }
+            ////////////Line 13-Line 15 START/////////////
+            //遍历每个活动区
+            //假设活动区一次都会被done
+            for (int i = 0; i < A.length; i++) {
+                if (A[i] == -1)//跳过为done的活动区
+                    continue;
+                int aaStart = i;//活动区起始位置
+                int aaEnd = aaStart + 1;//活动区结束位置
+                while (aaEnd < A.length) { //循环结束时A[aaEnd]!=A[aaStart]
+                    if (A[aaEnd] != A[aaStart])
+                        break;
+                    aaEnd++;
+                }
+                if (aaEnd == aaStart + 1) {//aaStart与aaEnd是两个相邻元素，且不等
+                    continue;//则aaStart前进一步
+                } else {
+                    //对于aaStart到aaEnd这片区域进行排序和维护I
+
+                    //aaStart与aaEnd之间超过两个元素，该范围内是活动区，对其排序
+                    Collections.sort(RPLList.subList(aaStart, aaEnd), RPLComparator);
+                    int[] newI = I.clone();
+                    for (int j = 0; j < beforeSort.size(); j++) {
+                        //维护I
+                        int offset = aaStart;//找到排序之前的位置
+                        for (; offset < aaEnd; offset++) {
+                            if (beforeSort.get(j).P == RPLList.get(offset).P)
+                                break;
+                        }
+                        newI[aaStart + j] = aaStart + offset;
+                        //维护I
+                    }
+                    I = newI;
+                    i = aaEnd;
+                }
+            }
+            boolean stateEqual = false;
+            for (int j = 0; j < A.length - 1; j++) {
+                if (A[j] == -1)
+                    continue;
+                //初态相邻两个不相等
+                //相等-》不相等
+                if (!stateEqual && RPLList.get(j).R.equals(RPLList.get(j + 1).R)) {
+                    stateEqual = true;
+                    lastActiveAreaId++;
+                    A[j] = lastActiveAreaId;
+                    A[j + 1] = lastActiveAreaId;
+                } else if (stateEqual && !RPLList.get(j).R.equals(RPLList.get(j + 1).R)) {
+                    stateEqual = false;
+                    A[j] = lastActiveAreaId;
+                    lastActiveAreaId++;
+                    //处理最后一个元素
+                    if (j + 1 == A.length - 1)
+                        A[j + 1] = lastActiveAreaId;
+                } else {
+                    A[j] = lastActiveAreaId;
+                    A[j + 1] = lastActiveAreaId;
+                }
+            }
+            for (int ind = undefinedB.size() - 1; ind >= 0; ind--) {
+                int i = undefinedB.get(ind);
+                //B[i] is not defined
+                //cs is the common S-prefix of R[i-1] and R[i]
+                int cs = 0;
+                String R1 = RPLList.get(i - 1).R;
+                String R2 = RPLList.get(i).R;
+                for (int j = 0; j < Math.min(R1.length(), R2.length()); j++) {
+                    //R1与R2的字符相等
+                    if (R1.charAt(j) == R2.charAt(j)) {
+                        cs++;
+                    } else
+                        break;
+                }
+                if (cs < range) {//line 18
+                    //line 19
+                    B[i] = start + cs;
+                    undefinedB.remove(ind);
+                    if (B[i - 1] > 0 || i == 1) {
+                        I[RPLList.get(i - 1).P] = -1;
+                        A[i - 1] = -1;
+                        RPLList.get(i - 1).R = null;
+                    }
+                    if (i == RPLList.size() - 1 || B[i + 1] > 0) {
+                        I[RPLList.get(i).P] = -1;
+                        A[i] = -1;
+                        RPLList.get(i).R = null;
+                    }
+                }
+            }
+            start += range;
+        }
+//        return new L_B(L, B);
+        return null;
     }
 
     /**
