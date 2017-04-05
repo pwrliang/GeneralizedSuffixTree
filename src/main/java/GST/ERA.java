@@ -81,7 +81,7 @@ public class ERA implements Serializable {
      * 返回算法参数-弹性范围
      */
     private int getRangeOfSymbols(int L_) {
-        int bufferSize = 300 * 1024 * 1024;
+        int bufferSize = 256 * 1024 * 1024;
         if (L_ <= 0)
             L_ = 1;
         int range = bufferSize / L_;
@@ -102,8 +102,6 @@ public class ERA implements Serializable {
         }
         return alphabet;
     }
-
-    Map<String, Long> fpiList = new HashMap<String, Long>();
 
 
     /**
@@ -269,7 +267,7 @@ public class ERA implements Serializable {
         List<String> P = new ArrayList<String>(alphabet.size());
         //每个key一个队列
         Map<String, List<int[]>> rank = new HashMap<String, List<int[]>>();
-
+        final Map<String, Long> fpiList = new HashMap<String, Long>();
 
         //如果c是原生类型，就用+""转换，如果c是包装类型，就用toString
         for (Character s : alphabet)
@@ -618,9 +616,6 @@ public class ERA implements Serializable {
         return new L_B(newL, B);
     }
 
-    long line1_7, line9_12, line13_15, line16_24, lineCopy;
-    long sortR, maintainI;
-
     private final Comparator<RPL> RPLComparator = new Comparator<RPL>() {
         /*
           * if s1>s2 return 1 else if s1<s2 return -1 else return 0
@@ -667,7 +662,6 @@ public class ERA implements Serializable {
      * @return 返回一个数组Object[2], Object[0]装的是L，Object[1]装的是B
      */
     L_B subTreePrepareAlpha(List<String> S, String p) {
-
         List<RPL> RPLList = new ArrayList<RPL>();
         p = p.replace(SPLITTER_INSERTION + "", "").replace(SPLITTER + "", "");//去掉分割标记
         int start = p.length();
@@ -723,22 +717,18 @@ public class ERA implements Serializable {
             Map<Integer, List<Integer>> newAAList = new HashMap<Integer, List<Integer>>(AAList);
             for (Integer AAId : AAList.keySet()) {//遍历每个活动区
                 //如果活动区中有任意被done的（我猜一个done则该活动区所有元素都done）
-                try {
-                    if (Adone[AAList.get(AAId).get(0)])
-                        continue;
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
                 List<Integer> indexList = AAList.get(AAId);//AAId活动区拥有的index
+                if (Adone[indexList.get(0)])
+                    continue;
                 List<RPL> subRPLList = new ArrayList<RPL>(indexList.size());
                 for (Integer index : indexList)//将该活动区的所有元素copy到subRPLList
                     subRPLList.add(RPLList.get(index));
                 Collections.sort(subRPLList, RPLComparator);//对subRPLList进行排序
-                for (int i = 0; i < indexList.size(); i++)//把排序好的RPL回填
-                    RPLList.set(indexList.get(i), subRPLList.get(i));
-                for (Integer index : indexList) {
-                    RPL rpl = RPLList.get(index);
-                    I[rpl.P] = index;
+                for (int i = 0; i < indexList.size(); i++) {
+                    int index = indexList.get(i);
+                    RPL rpl = subRPLList.get(i);
+                    I[rpl.P] = index;//maintain I
+                    RPLList.set(index, rpl);//把排序好的RPL回填
                 }
                 for (int i = 0; i < indexList.size(); ) {
                     int index = indexList.get(i);
