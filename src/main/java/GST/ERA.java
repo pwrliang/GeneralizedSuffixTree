@@ -616,7 +616,8 @@ public class ERA implements Serializable {
         return new L_B(newL, B);
     }
 
-    private final Comparator<RPL> RPLComparator = new Comparator<RPL>() {
+
+    private class RPLComparator implements Comparator<RPL>, Serializable {
         /*
           * if s1>s2 return 1 else if s1<s2 return -1 else return 0
           * */
@@ -640,9 +641,9 @@ public class ERA implements Serializable {
         public int compare(RPL o1, RPL o2) {
             return myCompare(o1.R, o2.R);
         }
-    };
+    }
 
-    private class RPL {
+    private class RPL implements Serializable {
         String R;
         int P;
         int L;//第index串的起始位置
@@ -653,6 +654,8 @@ public class ERA implements Serializable {
             this.L = L;
         }
     }
+
+    private final RPLComparator RPLCOMPARATOR = new RPLComparator();
 
     /**
      * 子树准备
@@ -723,7 +726,7 @@ public class ERA implements Serializable {
                 List<RPL> subRPLList = new ArrayList<RPL>(indexList.size());
                 for (Integer index : indexList)//将该活动区的所有元素copy到subRPLList
                     subRPLList.add(RPLList.get(index));
-                Collections.sort(subRPLList, RPLComparator);//对subRPLList进行排序
+                Collections.sort(subRPLList, RPLCOMPARATOR);//对subRPLList进行排序
                 for (int i = 0; i < indexList.size(); i++) {
                     int index = indexList.get(i);
                     RPL rpl = subRPLList.get(i);

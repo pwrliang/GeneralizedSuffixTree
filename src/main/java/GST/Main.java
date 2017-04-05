@@ -45,7 +45,9 @@ public class Main {
     public static void main(String[] args) throws IOException, InterruptedException {
         final String inputURL = args[0];
         final String outputURL = args[1];
-        final String param = args[2];
+        String param = "default";
+        if (args.length == 3)
+            param = args[2];
         SparkConf sparkConf = new SparkConf().
                 setAppName(new Path(inputURL).getName() + " Fm:" + param);
         sparkConf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer");
@@ -72,7 +74,11 @@ public class Main {
         for (String s : S)
             lengthForAll += s.length();
 //        int Fm = FmSelector(lengthForAll);
-        int Fm = Integer.valueOf(param);
+        int Fm;
+        if (param.equals("default"))
+            Fm = FmSelector(lengthForAll);
+        else
+            Fm = Integer.valueOf(param);
         Set<Character> alphabet = ERA.getAlphabet(S);//扫描串获得字母表
         Set<Set<String>> setOfVirtualTrees = era.verticalPartitioning(S, alphabet, Fm);//开始垂直分区
         //分配任务
