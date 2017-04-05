@@ -83,7 +83,7 @@ public class Main {
                 List<String> mainString = broadcastStringList.value();
                 Map<Character, String> terminatorFilename = broadcasterTerminatorFilename.value();
                 for (String pi : strings) {
-                    ERA.L_B lb = era.subTreePrepare(mainString, pi);
+                    ERA.L_B lb = era.subTreePrepareAlpha(mainString, pi);
                     ERA.TreeNode root = era.buildSubTree(mainString, lb);
                     era.splitSubTree(mainString, pi, root);
                     era.traverseTree(mainString, root, terminatorFilename, res);

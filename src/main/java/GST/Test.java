@@ -35,7 +35,7 @@ public class Test {
 
     public static void main(String[] args) throws IOException {
         final ERA era = new ERA();
-        final String inputURL = "D:\\Contest\\exset\\ex3";
+        final String inputURL = "D:\\Liang_Projects\\newDataSet\\input\\5000 1000";
         final Map<Character, String> terminatorFilename = new HashMap<Character, String>();//终结符:文件名
         final List<String> S = new ArrayList<String>();
 
@@ -66,9 +66,9 @@ public class Test {
                 era.traverseTree(S, root, terminatorFilename, result);
             }
         }
-//        System.out.println(System.currentTimeMillis() - start);
-        for (String s : result)
-            System.out.println(s);
+        System.out.println(System.currentTimeMillis() - start);
+//        for (String s : result)
+//            System.out.println(s);
 //        System.out.println("line1-7 " + era.line1_7);
 //        System.out.println("line9-12 " + era.line9_12);
 //        System.out.println("line13-15 " + era.line13_15);
