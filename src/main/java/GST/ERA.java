@@ -733,7 +733,7 @@ public class ERA implements Serializable {
      *
      * @param root               树的根节点
      * @param terminatorFileName 终结符-文件名对应列表
-     * @param result 返回一棵树所有叶节点遍历结果
+     * @param result             返回一棵树所有叶节点遍历结果
      */
     void traverseTree(List<String> S, TreeNode root, Map<Character, String> terminatorFileName, Set<String> result) {
         Stack<TreeNode> stack = new Stack<TreeNode>();
@@ -746,8 +746,15 @@ public class ERA implements Serializable {
                 node = node.leftChild;
             }
             node = stack.pop();
-            if (node.leftChild == null)
-                result.add(String.format("%d %s:%d", stack.size(), terminatorFileName.get(S.get(node.index).charAt(node.end - 1)), node.suffix_index));
+            if (node.leftChild == null) {
+                //result.add(String.format("%d %s:%d", stack.size(), terminatorFileName.get(S.get(node.index).charAt(node.end - 1)), node.suffix_index));
+                String sb = stack.size() +
+                        " " +
+                        terminatorFileName.get(S.get(node.index).charAt(node.end - 1)) +
+                        ":" +
+                        node.suffix_index;
+                result.add(sb);
+            }
             node = node.rightSibling;
         }
     }

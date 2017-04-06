@@ -83,13 +83,13 @@ public class Main {
         Set<Set<String>> setOfVirtualTrees = era.verticalPartitioning(S, alphabet, Fm);//开始垂直分区
         //分配任务
         final Broadcast<List<String>> broadcastStringList = sc.broadcast(S);
-//        final Broadcast<Map<Character, String>> broadcasterTerminatorFilename = sc.broadcast(terminatorFilename);
+        final Broadcast<Map<Character, String>> broadcasterTerminatorFilename = sc.broadcast(terminatorFilename);
         JavaRDD<Set<String>> vtRDD = sc.parallelize(new ArrayList<Set<String>>(setOfVirtualTrees), setOfVirtualTrees.size());
         JavaRDD<Set<String>> tmp = vtRDD.map(new Function<Set<String>, Set<String>>() {
             public Set<String> call(Set<String> strings) throws Exception {
                 Set<String> res = new HashSet<String>();
                 List<String> mainString = broadcastStringList.value();
-//                Map<Character, String> terminatorFilename = broadcasterTerminatorFilename.value();
+                Map<Character, String> terminatorFilename = broadcasterTerminatorFilename.value();
                 for (String pi : strings) {
                     ERA.L_B lb = era.subTreePrepare(mainString, pi);
                     ERA.TreeNode root = era.buildSubTree(mainString, lb);
