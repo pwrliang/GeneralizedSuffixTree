@@ -60,7 +60,7 @@ public class Test {
         Set<String> result = new HashSet<String>();
         for (Set<String> piSet : setOfVirtualTrees) {
             for (String pi : piSet) {
-                ERA.L_B lb = era.subTreePrepareAlpha(S, pi);
+                ERA.L_B lb = era.subTreePrepare(S, pi);
                 ERA.TreeNode root = era.buildSubTree(S, lb);
                 era.splitSubTree(S, pi, root);
                 era.traverseTree(S, root, terminatorFilename, result);

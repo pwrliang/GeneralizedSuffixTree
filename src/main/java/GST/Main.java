@@ -36,7 +36,7 @@ public class Main {
 
     private static class ClassRegistrator implements KryoRegistrator {
         public void registerClasses(Kryo kryo) {
-            kryo.register(ERA.L_B.class, new FieldSerializer(kryo, ERA.class));
+            kryo.register(ERA.L_B.class, new FieldSerializer(kryo, ERA.L_B.class));
             kryo.register(ERA.TreeNode.class, new FieldSerializer(kryo, ERA.TreeNode.class));
             kryo.register(ERA.class, new FieldSerializer(kryo, ERA.class));
         }
