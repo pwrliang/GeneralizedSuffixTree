@@ -34,7 +34,8 @@ public class Main {
             return 60000;
     }
 
-    private static class ClassRegistrator implements KryoRegistrator {
+    //"ClassRegistrator" must be public
+    public static class ClassRegistrator implements KryoRegistrator {
         public void registerClasses(Kryo kryo) {
             kryo.register(ERA.L_B.class, new FieldSerializer(kryo, ERA.L_B.class));
             kryo.register(ERA.TreeNode.class, new FieldSerializer(kryo, ERA.TreeNode.class));
