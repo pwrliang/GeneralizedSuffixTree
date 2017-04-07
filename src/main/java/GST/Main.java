@@ -23,15 +23,17 @@ import org.apache.spark.serializer.KryoRegistrator;
 public class Main {
     private static int FmSelector(int fileSize) {
         if (fileSize < 5000000) //5000 1000
-            return 30000;
+            return 50000;
         else if (fileSize < 30000000)//50000 1000
-            return 30000;
+            return 150000;
         else if (fileSize < 50000000)//500000 20
-            return 60000;
-        else if (fileSize < 80000000)//50000 5000
-            return 40000;
+            return 140000;
+        else if (fileSize < 75000000)//50000 5000
+            return 110000;
+        else if (fileSize < 80000000)//1000000 100
+            return 90000;
         else //500000 1000
-            return 60000;
+            return 200000;
     }
 
     //"ClassRegistrator" must be public
