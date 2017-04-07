@@ -13,8 +13,10 @@ import java.util.*;
 
 import org.apache.spark.api.java.function.FlatMapFunction;
 import org.apache.spark.api.java.function.Function;
+import org.apache.spark.api.java.function.PairFunction;
 import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.serializer.KryoRegistrator;
+import scala.Tuple2;
 
 /**
  * Created by Liang on 16-11-9.
@@ -51,26 +53,34 @@ public class Main {
         String param = "default";
         if (args.length == 3)
             param = args[2];
-        SparkConf sparkConf = new SparkConf().
-                setAppName(new Path(inputURL).getName() + " Fm:" + param);
-        sparkConf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer");
-        sparkConf.set("spark.kryo.registrator", ClassRegistrator.class.getName());
-        sparkConf.set("spark.kryoserializer.buffer.max", "2047");
-        final JavaSparkContext sc = new JavaSparkContext(sparkConf);
+        SparkConf conf = new SparkConf().
+                setAppName(new Path(inputURL).getName() + " Fm:" + param).setMaster("local");
+        conf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer");
+        conf.set("spark.kryo.registrator", ClassRegistrator.class.getName());
+        conf.set("spark.kryoserializer.buffer.max", "2047");
+        final JavaSparkContext sc = new JavaSparkContext(conf);
         final Map<Character, String> terminatorFilename = new HashMap<Character, String>();//终结符:文件名
-        final List<String> S = new ArrayList<String>();
 
         //开始读取文本文件
         //key filename value content
-        JavaPairRDD<String, String> inputData = sc.wholeTextFiles(inputURL);//read whole folder
-        Map<String, String> dataSet = inputData.collectAsMap();//key file path, value content
+        JavaPairRDD<String, String> inputDataRDD = sc.wholeTextFiles(inputURL).cache();//read whole folder
+        final Map<String,Character> filenameTerminator = new HashMap<String, Character>();
         final ERA era = new ERA();
-        for (String path : dataSet.keySet()) {
-            String filename = new Path(path).getName();
+        List<String> filenameList =  inputDataRDD.keys().collect();
+        for (String filename : filenameList) {
             Character terminator = era.nextTerminator();
-            S.add(dataSet.get(path) + terminator);//append terminator to the end of text
+            filenameTerminator.put(filename,terminator);
             terminatorFilename.put(terminator, filename);
         }
+
+        inputDataRDD = inputDataRDD.mapToPair(new PairFunction<Tuple2<String, String>, String, String>() {
+            public Tuple2<String, String> call(Tuple2<String, String> input) throws Exception {
+                String filename = input._1;
+                Character terminator = filenameTerminator.get(filename);
+                return new Tuple2<String, String>(filename,input._2+terminator);
+            }
+        });
+        List<String> S = inputDataRDD.values().collect();
 
         int lengthForAll = 0;
         for (String s : S)
