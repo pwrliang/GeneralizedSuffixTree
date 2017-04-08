@@ -1,5 +1,8 @@
 package GST;
 
+import GST.acdat.AhoCorasickDoubleArrayTrie;
+import scala.Char;
+
 import java.io.*;
 import java.util.*;
 
@@ -159,7 +162,7 @@ public class ERA implements Serializable {
                 //这里j为RankPi的元素值
                 List<int[]> piIndexes = rank.get(piWithoutSplitter);
 
-                if (piIndexes.size() == 1) {
+                if (piIndexes.size() == 1) {//bug这是
                     int[] index = piIndexes.get(0);
                     P_.add(pi + S.get(index[0]).charAt(index[1] + 1));
                 } else {
@@ -428,6 +431,136 @@ public class ERA implements Serializable {
         } while (!P.isEmpty());
         return virtualTree;
     }
+
+    /**
+     * 垂直分区
+     *
+     * @param S        字符串列表
+     * @param alphabet 字母表
+     * @param Fm       参数Fm
+     * @return 返回集合列表，每个元素是集合，集合内容是pi
+     */
+    Set<Set<String>> verticalPartitioningV2(List<String> S, Set<Character> alphabet, int Fm) {
+        Set<Set<String>> virtualTree = new HashSet<Set<String>>();
+        List<String> P_ = new ArrayList<>(alphabet.size());
+        List<String> P = new ArrayList<String>(alphabet.size());
+        final Map<String, Integer> fpiList = new HashMap<String, Integer>();
+        //每个key一个队列
+
+        //如果c是原生类型，就用+""转换，如果c是包装类型，就用toString
+        for (Character s : alphabet)
+            P_.add(s.toString());
+
+        //////////////
+        while (!P_.isEmpty()) {
+            Map<String, Integer> currentFpiList = new HashMap<String, Integer>();
+            Map<String, String> map = new TreeMap<>(); // key pi，value pi
+            //当pi对应的Set长度大于1，则需要拆分插入，频率为0跳过该pi，频率为1直接扩展一个字符
+            Map<String, Set<Character>> piNext = new HashMap<>();//key pi value 下一个字符（不包括终结符）
+            Map<String, Boolean> piTerminator = new HashMap<>();//key pi value pi下一个字符是否是终结符
+
+            for (String pi : P_) {//对每个pi
+                String piWithoutSplitter = pi.replace(SPLITTER + "", "").replace(SPLITTER_INSERTION + "", "");
+                map.put(piWithoutSplitter, piWithoutSplitter);
+                currentFpiList.put(piWithoutSplitter, 0);
+                piNext.put(piWithoutSplitter, new HashSet<Character>());
+                piTerminator.put(piWithoutSplitter, false);
+            }
+            AhoCorasickDoubleArrayTrie<String> acdat = new AhoCorasickDoubleArrayTrie<String>();
+            acdat.build(map);
+            for (String text : S) {//遍历主串，寻找所有的pi
+                List<AhoCorasickDoubleArrayTrie<String>.Hit<String>> piList = acdat.parseText(text);
+                for (AhoCorasickDoubleArrayTrie<String>.Hit<String> piWithoutSplitter : piList) {
+                    String sPiWithoutSplitter = piWithoutSplitter.value;
+                    int end = piWithoutSplitter.end;
+                    Set<Character> piNextList = piNext.get(sPiWithoutSplitter);//pi下一个字符集合
+                    if (isTerminator(text.charAt(end))) { //S中任意一个串以pi结尾
+                        piTerminator.put(sPiWithoutSplitter, true);
+                    } else {
+                        piNextList.add(text.charAt(end));//加入pi下一个字符(不包括终结符)
+                    }
+                    currentFpiList.put(sPiWithoutSplitter, currentFpiList.get(sPiWithoutSplitter) + 1);//统计pi频率
+                }
+            }
+            List<String> newP_ = new ArrayList<>();
+            for (String pi : P_) {
+                String piWithoutSplitter = pi.replace(SPLITTER + "", "").replace(SPLITTER_INSERTION + "", "");
+                int fpi = currentFpiList.get(piWithoutSplitter);
+                if (fpi > 0 && fpi <= Fm) {
+                    if(pi.startsWith("."))
+                        System.out.println();
+                    P.add(pi);
+                    fpiList.put(pi, fpi);
+                } else if (fpi > Fm) {
+                    if(pi.startsWith("."))
+                        System.out.println();
+                    if (piTerminator.get(piWithoutSplitter)) {
+                        boolean first = false;
+                        for (Character c : piNext.get(piWithoutSplitter)) {
+                            if (!first) {
+                                newP_.add(pi + SPLITTER_INSERTION + c);
+                                first = true;
+                                pi = pi.replace(SPLITTER_INSERTION, SPLITTER);
+                            } else {
+                                newP_.add(pi + SPLITTER + c);
+                            }
+                        }
+                    } else {
+                        if (piNext.get(piWithoutSplitter).size() <= 1) {
+                            for (Character c : piNext.get(piWithoutSplitter)) {
+                                newP_.add(pi + c);
+                            }
+                        } else {
+                            boolean first = false;
+                            for (Character c : piNext.get(piWithoutSplitter)) {
+                                if (!first) {
+                                    newP_.add(pi + SPLITTER + c);
+                                    first = true;
+                                    pi = pi.replace(SPLITTER_INSERTION, SPLITTER);
+                                } else {
+                                    newP_.add(pi + SPLITTER + c);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            P_ = newP_;
+        }
+        //sort P in decending fpi order
+        P = new ArrayList<String>(fpiList.keySet());
+        Collections.sort(P, new Comparator<String>() {
+            public int compare(String o1, String o2) {
+                if (fpiList.get(o1) > fpiList.get(o2))
+                    return -1;
+                else if (fpiList.get(o1).equals(fpiList.get(o2)))
+                    return 0;
+                else return 1;
+            }
+        });
+        ////////////////////////
+        do {
+            Set<String> G = new HashSet<String>();
+            //add P.head to G and remove the item from P
+            G.add(P.remove(0));
+            for (int i = 0; i < P.size(); i++) {
+                String sCurr = P.get(i);
+                int sumG = 0;
+                for (String gi : G) {
+                    sumG += fpiList.get(gi);
+                }
+                if (fpiList.get(sCurr) + sumG <= Fm) {
+                    //add curr to G and remove the item from P
+                    G.add(sCurr);
+                    P.remove(i);
+                    i--;
+                }
+            }
+            virtualTree.add(G);
+        } while (!P.isEmpty());
+        return virtualTree;
+    }
+
 
     private class RPLComparator implements Comparator<RPL>, Serializable {
         /*
