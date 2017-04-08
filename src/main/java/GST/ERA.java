@@ -1,8 +1,6 @@
 package GST;
 
 import GST.acdat.AhoCorasickDoubleArrayTrie;
-import scala.Char;
-
 import java.io.*;
 import java.util.*;
 
@@ -97,7 +95,7 @@ public class ERA implements Serializable {
      * 扫描所有串，生成字母表
      */
     static Set<Character> getAlphabet(List<String> S) {
-        Set<Character> alphabet = new HashSet<Character>();
+        Set<Character> alphabet = new HashSet<>();
         for (String line : S) {
             for (int j = 0; j < line.length() - 1; j++) {
                 alphabet.add(line.charAt(j));
@@ -115,336 +113,11 @@ public class ERA implements Serializable {
      * @param Fm       参数Fm
      * @return 返回集合列表，每个元素是集合，集合内容是pi
      */
-    Set<Set<String>> verticalPartitioning(List<String> S, Set<Character> alphabet, long Fm) {
-        Set<Set<String>> virtualTree = new HashSet<Set<String>>();
-        List<String> P_ = new ArrayList<String>(alphabet.size());
-        List<String> P = new ArrayList<String>(alphabet.size());
-        //每个key一个队列
-        Map<String, List<int[]>> rank = new HashMap<String, List<int[]>>();
-        final Map<String, Long> fpiList = new HashMap<String, Long>();
-
-        //如果c是原生类型，就用+""转换，如果c是包装类型，就用toString
-        for (Character s : alphabet)
-            P_.add(s.toString());
-
-        //将下标i插入对应RankS[i]队列中
-
-        for (int i = 0; i < S.size(); i++) {
-            String line = S.get(i);
-            //len-1跳过每行终结符
-            for (int j = 0; j < line.length() - 1; j++) {
-                String queueName = line.charAt(j) + "";
-                List<int[]> queue = rank.get(queueName);
-                if (queue == null) {
-                    queue = new ArrayList<int[]>();
-                    rank.put(queueName, queue);
-                }
-                int[] pos = new int[]{i, j};//i为第几个串，j为第i个串的起始位置
-                queue.add(pos);
-            }
-        }
-
-        //////////////
-        while (!P_.isEmpty()) {
-            String pi = P_.remove(0);//第一个元素总要被删，一开始就删了吧
-            //SPLITTER+""转换成String要比new Character(SPLITTER).toString()快
-            String piWithoutSplitter = pi.replace(SPLITTER + "", "").replace(SPLITTER_INSERTION + "", "");
-            long fpi = rank.get(piWithoutSplitter).size();
-            if (fpi > 0 && fpi <= Fm) {
-                P.add(pi);
-                fpiList.put(pi, fpi);
-            } else if (fpi > Fm) {
-                boolean _insert = false;
-
-                for (Character s : alphabet) {
-                    rank.put(piWithoutSplitter + s, new ArrayList<int[]>());
-                }
-                //这里j为RankPi的元素值
-                List<int[]> piIndexes = rank.get(piWithoutSplitter);
-
-                if (piIndexes.size() == 1) {//bug这是
-                    int[] index = piIndexes.get(0);
-                    P_.add(pi + S.get(index[0]).charAt(index[1] + 1));
-                } else {
-                    for (int[] j : piIndexes) {
-                        char id = S.get(j[0]).charAt(j[1] + 1);
-                        //是终结符，把break置为true
-                        if (isTerminator(id))
-                            _insert = true;
-                        else
-                            rank.get(piWithoutSplitter + id).add(new int[]{j[0], j[1] + 1});
-                    }
-                    if (_insert) {
-                        //解决拆分后重复的问题
-                        boolean firstNoEmpty = false;
-                        for (Character c : alphabet) {
-                            String queueName = piWithoutSplitter + c;
-                            //对于第一个非空队列，使用拆分、插入标记
-                            //对于其他的使用拆分标记
-                            if (rank.get(queueName).size() > 0) {
-                                if (!firstNoEmpty) {
-                                    P_.add(pi + SPLITTER_INSERTION + c);
-                                    firstNoEmpty = true;
-                                    //引入一个拆分插入符号后，修改pi，下次循环使用拆分符
-                                    pi = pi.replace(SPLITTER_INSERTION, SPLITTER);
-                                } else {
-                                    //对于其他元素，使用拆分标记
-                                    P_.add(pi + SPLITTER + c);
-                                }
-                            }
-                        }
-                    } else {
-                        //修复部分节点多拆分的问题
-                        int count = 0;
-                        for (Character c : alphabet) {
-                            if (rank.get(piWithoutSplitter + c).size() > 0) {
-                                count++;
-                                //优化
-                                if (count > 1)
-                                    break;
-                            }
-                        }
-                        if (count > 1) {
-                            boolean firstNoEmpty = false;
-                            for (Character c : alphabet) {
-                                String queueName = piWithoutSplitter + c;
-                                if (rank.get(queueName).size() > 0) {
-                                    //这里对于第一个非空使用SPLITTER_INSERTION，扩展其他使用SPLITTER
-                                    if (!firstNoEmpty) {
-                                        P_.add(pi + SPLITTER + c);
-                                        firstNoEmpty = true;
-                                        pi = pi.replace(SPLITTER_INSERTION, SPLITTER);
-                                    } else {
-                                        P_.add(pi + SPLITTER + c);
-                                    }
-                                }
-                            }
-                        } else {
-                            for (Character c : alphabet) {
-                                if (rank.get(piWithoutSplitter + c).size() > 0)
-                                    P_.add(pi + c);
-                            }
-                        }
-                    }
-                }
-            }
-            rank.remove(piWithoutSplitter);
-        }
-        //sort P in decending fpi order
-        P = new ArrayList<String>(fpiList.keySet());
-        Collections.sort(P, new Comparator<String>() {
-            public int compare(String o1, String o2) {
-                if (fpiList.get(o1) > fpiList.get(o2))
-                    return -1;
-                else if (fpiList.get(o1).equals(fpiList.get(o2)))
-                    return 0;
-                else return 1;
-            }
-        });
-        ////////////////////////
-        do {
-            Set<String> G = new HashSet<String>();
-            //add P.head to G and remove the item from P
-            G.add(P.remove(0));
-            for (int i = 0; i < P.size(); i++) {
-                String sCurr = P.get(i);
-                int sumG = 0;
-                for (String gi : G) {
-                    sumG += fpiList.get(gi);
-                }
-                if (fpiList.get(sCurr) + sumG <= Fm) {
-                    //add curr to G and remove the item from P
-                    G.add(sCurr);
-                    P.remove(i);
-                    i--;
-                }
-            }
-            virtualTree.add(G);
-        } while (!P.isEmpty());
-        return virtualTree;
-    }
-
-    /**
-     * 垂直分区
-     *
-     * @param S        字符串列表
-     * @param alphabet 字母表
-     * @param Fm       参数Fm
-     * @return 返回集合列表，每个元素是集合，集合内容是pi
-     */
-    Set<Set<String>> verticalPartitioningTest(List<String> S, Set<Character> alphabet, int Fm) {
-        Set<Set<String>> virtualTree = new HashSet<Set<String>>();
-        List<String> P_ = new ArrayList<String>(alphabet.size());
-        List<String> P = new ArrayList<String>(alphabet.size());
-        //每个key一个队列
-        Map<String, List<int[]>> rank = new HashMap<String, List<int[]>>();
-        final Map<String, Integer> fpiList = new HashMap<String, Integer>();
-
-        //如果c是原生类型，就用+""转换，如果c是包装类型，就用toString
-        for (Character s : alphabet)
-            P_.add(s.toString());
-
-        //将下标i插入对应RankS[i]队列中
-
-        for (int i = 0; i < S.size(); i++) {
-            String line = S.get(i);
-            //len-1跳过每行终结符
-            for (int j = 0; j < line.length() - 1; j++) {
-                String queueName = line.charAt(j) + "";
-                List<int[]> queue = rank.get(queueName);
-                if (queue == null) {
-                    queue = new ArrayList<int[]>();
-                    rank.put(queueName, queue);
-                }
-                int[] pos = new int[]{i, j};//i为第几个串，j为第i个串的起始位置
-                queue.add(pos);
-            }
-        }
-
-        //////////////
-        while (!P_.isEmpty()) {
-            String pi = P_.remove(0);//第一个元素总要被删，一开始就删了吧
-            //SPLITTER+""转换成String要比new Character(SPLITTER).toString()快
-            String piWithoutSplitter = pi.replace(SPLITTER + "", "").replace(SPLITTER_INSERTION + "", "");
-            List<int[]> piIndexes = rank.remove(piWithoutSplitter);
-            int fpi = piIndexes.size();
-            if (fpi > 5 * Fm) {
-                System.out.println("GC...");
-                System.gc();
-            }
-            if (fpi > 0 && fpi <= Fm) {
-                P.add(pi);
-                fpiList.put(pi, fpi);
-            } else if (fpi > Fm) {
-                boolean _insert = false;
-
-                for (Character s : alphabet) {
-                    rank.put(piWithoutSplitter + s, new ArrayList<int[]>());
-                }
-                //这里j为RankPi的元素值
-
-                if (piIndexes.size() == 1) {
-                    int[] index = piIndexes.get(0);
-                    P_.add(pi + S.get(index[0]).charAt(index[1] + 1));
-                } else {
-                    for (int[] j : piIndexes) {
-                        char id = S.get(j[0]).charAt(j[1] + 1);
-                        //是终结符，把break置为true
-                        if (isTerminator(id))
-                            _insert = true;
-                        else
-                            rank.get(piWithoutSplitter + id).add(new int[]{j[0], j[1] + 1});
-                    }
-                    if (_insert) {
-                        //解决拆分后重复的问题
-                        boolean firstNoEmpty = false;
-                        for (Character c : alphabet) {
-                            String queueName = piWithoutSplitter + c;
-                            //对于第一个非空队列，使用拆分、插入标记
-                            //对于其他的使用拆分标记
-                            if (rank.get(queueName).size() > 0) {
-                                if (!firstNoEmpty) {
-                                    P_.add(pi + SPLITTER_INSERTION + c);
-                                    firstNoEmpty = true;
-                                    //引入一个拆分插入符号后，修改pi，下次循环使用拆分符
-                                    pi = pi.replace(SPLITTER_INSERTION, SPLITTER);
-                                } else {
-                                    //对于其他元素，使用拆分标记
-                                    P_.add(pi + SPLITTER + c);
-                                }
-                            } else {
-                                rank.put(queueName, null);
-                                rank.remove(queueName);
-                            }
-                        }
-                    } else {
-                        //修复部分节点多拆分的问题
-                        int count = 0;
-                        for (Character c : alphabet) {
-                            String queueName = piWithoutSplitter + c;
-                            if (rank.get(queueName).size() > 0) {
-                                count++;
-                                //优化
-                                if (count > 1)
-                                    break;
-                            }
-                        }
-                        if (count > 1) {
-                            boolean firstNoEmpty = false;
-                            for (Character c : alphabet) {
-                                String queueName = piWithoutSplitter + c;
-                                if (rank.get(queueName).size() > 0) {
-                                    //这里对于第一个非空使用SPLITTER_INSERTION，扩展其他使用SPLITTER
-                                    if (!firstNoEmpty) {
-                                        P_.add(pi + SPLITTER + c);
-                                        firstNoEmpty = true;
-                                        pi = pi.replace(SPLITTER_INSERTION, SPLITTER);
-                                    } else {
-                                        P_.add(pi + SPLITTER + c);
-                                    }
-                                } else {
-                                    rank.put(queueName, null);
-                                    rank.remove(queueName);
-                                }
-                            }
-                        } else {
-                            for (Character c : alphabet) {
-                                if (rank.get(piWithoutSplitter + c).size() > 0)
-                                    P_.add(pi + c);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        rank = null;
-        //sort P in decending fpi order
-        P = new ArrayList<String>(fpiList.keySet());
-        Collections.sort(P, new Comparator<String>() {
-            public int compare(String o1, String o2) {
-                if (fpiList.get(o1) > fpiList.get(o2))
-                    return -1;
-                else if (fpiList.get(o1).equals(fpiList.get(o2)))
-                    return 0;
-                else return 1;
-            }
-        });
-        ////////////////////////
-        do {
-            Set<String> G = new HashSet<String>();
-            //add P.head to G and remove the item from P
-            G.add(P.remove(0));
-            for (int i = 0; i < P.size(); i++) {
-                String sCurr = P.get(i);
-                int sumG = 0;
-                for (String gi : G) {
-                    sumG += fpiList.get(gi);
-                }
-                if (fpiList.get(sCurr) + sumG <= Fm) {
-                    //add curr to G and remove the item from P
-                    G.add(sCurr);
-                    P.remove(i);
-                    i--;
-                }
-            }
-            virtualTree.add(G);
-        } while (!P.isEmpty());
-        return virtualTree;
-    }
-
-    /**
-     * 垂直分区
-     *
-     * @param S        字符串列表
-     * @param alphabet 字母表
-     * @param Fm       参数Fm
-     * @return 返回集合列表，每个元素是集合，集合内容是pi
-     */
-    Set<Set<String>> verticalPartitioningV2(List<String> S, Set<Character> alphabet, int Fm) {
-        Set<Set<String>> virtualTree = new HashSet<Set<String>>();
+    Set<Set<String>> verticalPartitioning(List<String> S, Set<Character> alphabet, int Fm) {
+        Set<Set<String>> virtualTree = new HashSet<>();
         List<String> P_ = new ArrayList<>(alphabet.size());
-        List<String> P = new ArrayList<String>(alphabet.size());
-        final Map<String, Integer> fpiList = new HashMap<String, Integer>();
+        List<String> P = new ArrayList<>(alphabet.size());
+        final Map<String, Integer> fpiList = new HashMap<>();
         //每个key一个队列
 
         //如果c是原生类型，就用+""转换，如果c是包装类型，就用toString
@@ -453,7 +126,7 @@ public class ERA implements Serializable {
 
         //////////////
         while (!P_.isEmpty()) {
-            Map<String, Integer> currentFpiList = new HashMap<String, Integer>();
+            Map<String, Integer> currentFpiList = new HashMap<>();
             Map<String, String> map = new TreeMap<>(); // key pi，value pi
             //当pi对应的Set长度大于1，则需要拆分插入，频率为0跳过该pi，频率为1直接扩展一个字符
             Map<String, Set<Character>> piNext = new HashMap<>();//key pi value 下一个字符（不包括终结符）
@@ -466,7 +139,7 @@ public class ERA implements Serializable {
                 piNext.put(piWithoutSplitter, new HashSet<Character>());
                 piTerminator.put(piWithoutSplitter, false);
             }
-            AhoCorasickDoubleArrayTrie<String> acdat = new AhoCorasickDoubleArrayTrie<String>();
+            AhoCorasickDoubleArrayTrie<String> acdat = new AhoCorasickDoubleArrayTrie<>();
             acdat.build(map);
             for (String text : S) {//遍历主串，寻找所有的pi
                 List<AhoCorasickDoubleArrayTrie<String>.Hit<String>> piList = acdat.parseText(text);
@@ -487,13 +160,9 @@ public class ERA implements Serializable {
                 String piWithoutSplitter = pi.replace(SPLITTER + "", "").replace(SPLITTER_INSERTION + "", "");
                 int fpi = currentFpiList.get(piWithoutSplitter);
                 if (fpi > 0 && fpi <= Fm) {
-                    if(pi.startsWith("."))
-                        System.out.println();
                     P.add(pi);
                     fpiList.put(pi, fpi);
                 } else if (fpi > Fm) {
-                    if(pi.startsWith("."))
-                        System.out.println();
                     if (piTerminator.get(piWithoutSplitter)) {
                         boolean first = false;
                         for (Character c : piNext.get(piWithoutSplitter)) {
@@ -528,7 +197,7 @@ public class ERA implements Serializable {
             P_ = newP_;
         }
         //sort P in decending fpi order
-        P = new ArrayList<String>(fpiList.keySet());
+        P = new ArrayList<>(fpiList.keySet());
         Collections.sort(P, new Comparator<String>() {
             public int compare(String o1, String o2) {
                 if (fpiList.get(o1) > fpiList.get(o2))
@@ -540,7 +209,7 @@ public class ERA implements Serializable {
         });
         ////////////////////////
         do {
-            Set<String> G = new HashSet<String>();
+            Set<String> G = new HashSet<>();
             //add P.head to G and remove the item from P
             G.add(P.remove(0));
             for (int i = 0; i < P.size(); i++) {
@@ -610,7 +279,7 @@ public class ERA implements Serializable {
      * @return 返回一个数组Object[2], Object[0]装的是L，Object[1]装的是B
      */
     L_B subTreePrepare(List<String> S, String p) {
-        List<RPL> RPLList = new ArrayList<RPL>();
+        List<RPL> RPLList = new ArrayList<>();
         p = p.replace(SPLITTER_INSERTION + "", "").replace(SPLITTER + "", "");//去掉分割标记
         int start = p.length();
         //Line 1:L contains the locations of S-prefix p in string S
@@ -629,9 +298,9 @@ public class ERA implements Serializable {
         int[] B = new int[LSize];
         boolean[] Adone = new boolean[LSize];
         int[] I = new int[LSize];
-        List<Integer> initAAIndex = new ArrayList<Integer>(LSize);//活动区0对应的编号列表
-        Map<Integer, List<Integer>> AAList = new HashMap<Integer, List<Integer>>();//key为活动区id，value为同一个活动区的index
-        List<Integer> undefinedB = new ArrayList<Integer>(LSize);//未定义的B
+        List<Integer> initAAIndex = new ArrayList<>(LSize);//活动区0对应的编号列表
+        Map<Integer, List<Integer>> AAList = new HashMap<>();//key为活动区id，value为同一个活动区的index
+        List<Integer> undefinedB = new ArrayList<>(LSize);//未定义的B
         for (int i = 0; i < LSize; i++) {
             I[i] = i;
             RPLList.get(i).P = i;
@@ -662,13 +331,13 @@ public class ERA implements Serializable {
                 }
             }
             ////////////Line 13-Line 15 START/////////////
-            Map<Integer, List<Integer>> newAAList = new HashMap<Integer, List<Integer>>(AAList);
+            Map<Integer, List<Integer>> newAAList = new HashMap<>(AAList);
             for (Integer AAId : AAList.keySet()) {//遍历每个活动区
                 //如果活动区中有任意被done的（我猜一个done则该活动区所有元素都done）
                 List<Integer> indexList = AAList.get(AAId);//AAId活动区拥有的index
                 if (Adone[indexList.get(0)])
                     continue;
-                List<RPL> subRPLList = new ArrayList<RPL>(indexList.size());
+                List<RPL> subRPLList = new ArrayList<>(indexList.size());
                 for (Integer index : indexList)//将该活动区的所有元素copy到subRPLList
                     subRPLList.add(RPLList.get(index));
                 Collections.sort(subRPLList, RPLCOMPARATOR);//对subRPLList进行排序
@@ -688,14 +357,12 @@ public class ERA implements Serializable {
                         j++;
                     }
                     if (j != i + 1) {//发现活动区
-                        List<Integer> newAA = new ArrayList<Integer>(j - i);
+                        List<Integer> newAA = new ArrayList<>(j - i);
                         for (int k = i; k < j; k++) {//将R相同的元素从旧活动区移除，加入新的活动区
                             newAA.add(indexList.remove(i));
                             if (indexList.size() == 0)
                                 newAAList.remove(AAId);
                         }
-                        if (newAA.size() == 0)
-                            System.out.println();
                         newAAList.put(++lastActiveAreaId, newAA);
                     } else
                         i = j;
@@ -737,7 +404,7 @@ public class ERA implements Serializable {
             }
             start += range;
         }
-        List<int[]> newL = new ArrayList<int[]>(RPLList.size());
+        List<int[]> newL = new ArrayList<>(RPLList.size());
         for (RPL rpl : RPLList)
             newL.add(new int[]{rpl.index, rpl.L});
         return new L_B(newL, B);
@@ -764,9 +431,9 @@ public class ERA implements Serializable {
         u_.end = S.get(L0[0]).length();
         u_.suffix_index = L0[1];
 
-        Stack<TreeNode> stack = new Stack<TreeNode>();
+        Stack<TreeNode> stack = new Stack<>();
         stack.push(u_);
-        Map<TreeNode, Integer> v1Length = new HashMap<TreeNode, Integer>();//从根节点到某一结点走过的字符串的长度
+        Map<TreeNode, Integer> v1Length = new HashMap<>();//从根节点到某一结点走过的字符串的长度
         v1Length.put(root, 0);
         int depth = u_.end - u_.start;
         for (int i = 1; i < B.length; i++) {
@@ -886,7 +553,7 @@ public class ERA implements Serializable {
      * @param result             返回一棵树所有叶节点遍历结果
      */
     void traverseTree(List<String> S, TreeNode root, Map<Character, String> terminatorFileName, Set<String> result) {
-        Stack<TreeNode> stack = new Stack<TreeNode>();
+        Stack<TreeNode> stack = new Stack<>();
         TreeNode node = root;
         if (root == null)
             return;
