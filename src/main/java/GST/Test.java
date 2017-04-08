@@ -1,5 +1,9 @@
 package GST;
 
+
+
+import GST.acdat.*;
+
 import java.io.*;
 import java.util.*;
 
@@ -34,6 +38,26 @@ public class Test {
     }
 
     public static void main(String[] args) throws IOException {
+        // Collect test data set
+        Map<String, String> map = new TreeMap<>();
+        String[] keyArray = new String[]
+                {
+                        "hers",
+                        "his",
+                        "she",
+                        "he"
+                };
+        for (String key : keyArray)
+        {
+            map.put(key, key);
+        }
+        // Build an AhoCorasickDoubleArrayTrie
+        AhoCorasickDoubleArrayTrie<String> acdat = new AhoCorasickDoubleArrayTrie<String>();
+        acdat.build(map);
+        // Test it
+        final String text = "uhers";
+        List<AhoCorasickDoubleArrayTrie<String>.Hit<String>> wordList = acdat.parseText(text);
+        System.exit(0);
         final ERA era = new ERA();
         final String inputURL = "/home/gengl/Desktop/gengl/Documents/input/5000 1000";
         final Map<Character, String> terminatorFilename = new HashMap<Character, String>();//终结符:文件名
