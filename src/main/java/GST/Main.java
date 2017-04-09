@@ -99,14 +99,12 @@ public class Main {
         //分配任务
         final Broadcast<List<String>> broadcastStringList = sc.broadcast(S);
         final Broadcast<Map<Character, String>> broadcasterTerminatorFilename = sc.broadcast(terminatorFilename);
-        JavaRDD<Set<String>> vtRDD = sc.parallelize(new ArrayList<>(setOfVirtualTrees), setOfVirtualTrees.size());
-        JavaRDD<Map<String,List<int[]>>> prefixLocRDD = vtRDD.map(new Function<Set<String>, Map<String, List<int[]>>>() {
-            @Override
-            public Map<String, List<int[]>> call(Set<String> prefixSet) throws Exception {
-                List<String> mainString = broadcastStringList.value();
-                return era.getPrefixLoc(mainString, prefixSet);//一次寻找前缀集合中所有前缀的位置
-            }
-        });
+        List<Map<String, List<int[]>>> prefixLoc = new ArrayList<>(setOfVirtualTrees.size());//寻找前缀结合中各个前缀的位置
+        for (Set<String> prefixSet : setOfVirtualTrees) {
+            prefixLoc.add(era.getPrefixLoc(S, prefixSet));
+        }
+        JavaRDD<Map<String, List<int[]>>> prefixLocRDD = sc.parallelize(prefixLoc, prefixLoc.size());
+
         JavaRDD<Set<String>> tmp = prefixLocRDD.map(new Function<Map<String, List<int[]>>, Set<String>>() {
             @Override
             public Set<String> call(Map<String, List<int[]>> prefixLoc) throws Exception {
