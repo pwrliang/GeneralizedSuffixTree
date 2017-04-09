@@ -13,8 +13,10 @@ import java.util.*;
 
 import org.apache.spark.api.java.function.FlatMapFunction;
 import org.apache.spark.api.java.function.Function;
+import org.apache.spark.api.java.function.PairFunction;
 import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.serializer.KryoRegistrator;
+import scala.Tuple2;
 
 /**
  * Created by Liang on 16-11-9.
@@ -98,12 +100,19 @@ public class Main {
         final Broadcast<List<String>> broadcastStringList = sc.broadcast(S);
         final Broadcast<Map<Character, String>> broadcasterTerminatorFilename = sc.broadcast(terminatorFilename);
         JavaRDD<Set<String>> vtRDD = sc.parallelize(new ArrayList<>(setOfVirtualTrees), setOfVirtualTrees.size());
-        JavaRDD<Set<String>> tmp = vtRDD.map(new Function<Set<String>, Set<String>>() {
-            public Set<String> call(Set<String> prefixSet) throws Exception {
+        JavaRDD<Map<String,List<int[]>>> prefixLocRDD = vtRDD.map(new Function<Set<String>, Map<String, List<int[]>>>() {
+            @Override
+            public Map<String, List<int[]>> call(Set<String> prefixSet) throws Exception {
+                List<String> mainString = broadcastStringList.value();
+                return era.getPrefixLoc(mainString, prefixSet);//一次寻找前缀集合中所有前缀的位置
+            }
+        });
+        JavaRDD<Set<String>> tmp = prefixLocRDD.map(new Function<Map<String, List<int[]>>, Set<String>>() {
+            @Override
+            public Set<String> call(Map<String, List<int[]>> prefixLoc) throws Exception {
                 Set<String> result = new HashSet<>();
                 List<String> mainString = broadcastStringList.value();
                 Map<Character, String> terminatorFilename = broadcasterTerminatorFilename.value();
-                Map<String, List<int[]>> prefixLoc = era.getPrefixLoc(mainString, prefixSet);//一次寻找前缀集合中所有前缀的位置
                 for (String prefix : prefixLoc.keySet()) {
                     ERA.L_B lb = era.subTreePrepareTest(S, prefix, prefixLoc.get(prefix));
                     ERA.TreeNode root = era.buildSubTree(mainString, lb);
@@ -113,6 +122,21 @@ public class Main {
                 return result;
             }
         });
+//        JavaRDD<Set<String>> tmp = vtRDD.map(new Function<Set<String>, Set<String>>() {
+//            public Set<String> call(Set<String> prefixSet) throws Exception {
+//                Set<String> result = new HashSet<>();
+//                List<String> mainString = broadcastStringList.value();
+//                Map<Character, String> terminatorFilename = broadcasterTerminatorFilename.value();
+//                Map<String, List<int[]>> prefixLoc = era.getPrefixLoc(mainString, prefixSet);//一次寻找前缀集合中所有前缀的位置
+//                for (String prefix : prefixLoc.keySet()) {
+//                    ERA.L_B lb = era.subTreePrepareTest(S, prefix, prefixLoc.get(prefix));
+//                    ERA.TreeNode root = era.buildSubTree(mainString, lb);
+//                    era.splitSubTree(mainString, prefix, root);
+//                    era.traverseTree(mainString, root, terminatorFilename, result);
+//                }
+//                return result;
+//            }
+//        });
         JavaRDD<String> resultRDD = tmp.flatMap(new FlatMapFunction<Set<String>, String>() {
             public Iterable<String> call(Set<String> strings) throws Exception {
                 return strings;
