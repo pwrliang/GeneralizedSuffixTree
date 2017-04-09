@@ -90,7 +90,7 @@ public class Main {
         Set<Character> alphabet = ERA.getAlphabet(S);//扫描串获得字母表
         System.out.println("scan alphabet:" + (System.currentTimeMillis() - start));
         start = System.currentTimeMillis();
-        Set<Map<String,List<int[]>>> setOfVirtualTrees = era.verticalPartitioningTest(S, alphabet, Fm);//开始垂直分区
+        Set<Set<String>> setOfVirtualTrees = era.verticalPartitioning(S, alphabet, Fm);//开始垂直分区
         System.out.println("vertical partition:" + (System.currentTimeMillis() - start));
         start = System.currentTimeMillis();
         long gcStart = System.currentTimeMillis();
@@ -100,16 +100,15 @@ public class Main {
         final Broadcast<List<String>> broadcastStringList = sc.broadcast(S);
         final Broadcast<Map<Character, String>> broadcasterTerminatorFilename = sc.broadcast(terminatorFilename);
 
-        JavaRDD<Map<String, List<int[]>>> prefixLocRDD =
-                sc.parallelize(new ArrayList<>(setOfVirtualTrees), setOfVirtualTrees.size());
-        JavaRDD<Set<String>> tmp = prefixLocRDD.map(new Function<Map<String, List<int[]>>, Set<String>>() {
-            @Override
-            public Set<String> call(Map<String, List<int[]>> prefixLoc) throws Exception {
+        JavaRDD<Set<String>> vtRDD = sc.parallelize(new ArrayList<>(setOfVirtualTrees), setOfVirtualTrees.size());
+        JavaRDD<Set<String>> tmp = vtRDD.map(new Function<Set<String>, Set<String>>() {
+            public Set<String> call(Set<String> prefixSet) throws Exception {
                 Set<String> result = new HashSet<>();
                 List<String> mainString = broadcastStringList.value();
                 Map<Character, String> terminatorFilename = broadcasterTerminatorFilename.value();
+                Map<String, List<int[]>> prefixLoc = era.getPrefixLoc(mainString, prefixSet);//一次寻找前缀集合中所有前缀的位置
                 for (String prefix : prefixLoc.keySet()) {
-                    ERA.L_B lb = era.subTreePrepareTest(S, prefix, prefixLoc.get(prefix));
+                    ERA.L_B lb = era.subTreePrepare(S, prefix, prefixLoc.get(prefix));
                     ERA.TreeNode root = era.buildSubTree(mainString, lb);
                     era.splitSubTree(mainString, prefix, root);
                     era.traverseTree(mainString, root, terminatorFilename, result);
