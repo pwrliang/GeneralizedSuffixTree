@@ -44,14 +44,10 @@ public class Main {
     }
 
     public static void main(String[] args) throws IOException, InterruptedException {
-        long start = System.currentTimeMillis();
         final String inputURL = args[0];
         final String outputURL = args[1];
-        String param = "default";
-        if (args.length == 3)
-            param = args[2];
         SparkConf conf = new SparkConf().
-                setAppName(new Path(inputURL).getName() + " Fm:" + param);
+                setAppName("GST");
         conf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer");
         conf.set("spark.kryo.registrator", ClassRegistrator.class.getName());
         conf.set("spark.kryoserializer.buffer.max", "2047");
@@ -73,25 +69,9 @@ public class Main {
         int lengthForAll = 0;
         for (String s : S)
             lengthForAll += s.length();
-//        int Fm = FmSelector(lengthForAll);
-        int Fm;
-        if (param.equals("default"))
-            Fm = FmSelector(lengthForAll);
-        else
-            Fm = Integer.valueOf(param);
-        System.out.println("path:" + outputURL);
-        System.out.println("string length:" + lengthForAll);
-        System.out.println("read:" + (System.currentTimeMillis() - start));
-        start = System.currentTimeMillis();
+        int Fm = FmSelector(lengthForAll);
         Set<Character> alphabet = ERA.getAlphabet(S);//扫描串获得字母表
-        System.out.println("scan alphabet:" + (System.currentTimeMillis() - start));
-        start = System.currentTimeMillis();
         Set<Set<String>> setOfVirtualTrees = era.verticalPartitioning(S, alphabet, Fm);//开始垂直分区
-        System.out.println("vertical partition:" + (System.currentTimeMillis() - start));
-        start = System.currentTimeMillis();
-        long gcStart = System.currentTimeMillis();
-        System.gc();
-        System.out.println("gc:" + (System.currentTimeMillis() - gcStart));
         //分配任务
         final Broadcast<List<String>> broadcastStringList = sc.broadcast(S);
         final Broadcast<Map<Character, String>> broadcasterTerminatorFilename = sc.broadcast(terminatorFilename);
@@ -118,6 +98,5 @@ public class Main {
             }
         });
         resultRDD.saveAsTextFile(outputURL);
-        System.out.println("other procedure:" + (System.currentTimeMillis() - start));
     }
 }
