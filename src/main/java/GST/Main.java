@@ -81,6 +81,8 @@ public class Main {
             Fm = FmSelector(lengthForAll);
         else
             Fm = Integer.valueOf(param);
+        System.out.println("path:" + outputURL);
+        System.out.println("string length:" + lengthForAll);
         System.out.println("read:" + (System.currentTimeMillis() - start));
         start = System.currentTimeMillis();
         Set<Character> alphabet = ERA.getAlphabet(S);//扫描串获得字母表
@@ -89,7 +91,9 @@ public class Main {
         Set<Set<String>> setOfVirtualTrees = era.verticalPartitioning(S, alphabet, Fm);//开始垂直分区
         System.out.println("vertical partition:" + (System.currentTimeMillis() - start));
         start = System.currentTimeMillis();
+        long gcStart = System.currentTimeMillis();
         System.gc();
+        System.out.println("gc:" + (System.currentTimeMillis() - gcStart));
         //分配任务
         final Broadcast<List<String>> broadcastStringList = sc.broadcast(S);
         final Broadcast<Map<Character, String>> broadcasterTerminatorFilename = sc.broadcast(terminatorFilename);
