@@ -90,7 +90,7 @@ public class Main {
         Set<Character> alphabet = ERA.getAlphabet(S);//扫描串获得字母表
         System.out.println("scan alphabet:" + (System.currentTimeMillis() - start));
         start = System.currentTimeMillis();
-        Set<Set<String>> setOfVirtualTrees = era.verticalPartitioning(S, alphabet, Fm);//开始垂直分区
+        Set<Map<String,List<int[]>>> setOfVirtualTrees = era.verticalPartitioningTest(S, alphabet, Fm);//开始垂直分区
         System.out.println("vertical partition:" + (System.currentTimeMillis() - start));
         start = System.currentTimeMillis();
         long gcStart = System.currentTimeMillis();
@@ -99,12 +99,9 @@ public class Main {
         //分配任务
         final Broadcast<List<String>> broadcastStringList = sc.broadcast(S);
         final Broadcast<Map<Character, String>> broadcasterTerminatorFilename = sc.broadcast(terminatorFilename);
-        List<Map<String, List<int[]>>> prefixLoc = new ArrayList<>(setOfVirtualTrees.size());//寻找前缀结合中各个前缀的位置
-        for (Set<String> prefixSet : setOfVirtualTrees) {
-            prefixLoc.add(era.getPrefixLoc(S, prefixSet));
-        }
-        JavaRDD<Map<String, List<int[]>>> prefixLocRDD = sc.parallelize(prefixLoc, prefixLoc.size());
 
+        JavaRDD<Map<String, List<int[]>>> prefixLocRDD =
+                sc.parallelize(new ArrayList<>(setOfVirtualTrees), setOfVirtualTrees.size());
         JavaRDD<Set<String>> tmp = prefixLocRDD.map(new Function<Map<String, List<int[]>>, Set<String>>() {
             @Override
             public Set<String> call(Map<String, List<int[]>> prefixLoc) throws Exception {
@@ -120,21 +117,6 @@ public class Main {
                 return result;
             }
         });
-//        JavaRDD<Set<String>> tmp = vtRDD.map(new Function<Set<String>, Set<String>>() {
-//            public Set<String> call(Set<String> prefixSet) throws Exception {
-//                Set<String> result = new HashSet<>();
-//                List<String> mainString = broadcastStringList.value();
-//                Map<Character, String> terminatorFilename = broadcasterTerminatorFilename.value();
-//                Map<String, List<int[]>> prefixLoc = era.getPrefixLoc(mainString, prefixSet);//一次寻找前缀集合中所有前缀的位置
-//                for (String prefix : prefixLoc.keySet()) {
-//                    ERA.L_B lb = era.subTreePrepareTest(S, prefix, prefixLoc.get(prefix));
-//                    ERA.TreeNode root = era.buildSubTree(mainString, lb);
-//                    era.splitSubTree(mainString, prefix, root);
-//                    era.traverseTree(mainString, root, terminatorFilename, result);
-//                }
-//                return result;
-//            }
-//        });
         JavaRDD<String> resultRDD = tmp.flatMap(new FlatMapFunction<Set<String>, String>() {
             public Iterable<String> call(Set<String> strings) throws Exception {
                 return strings;
