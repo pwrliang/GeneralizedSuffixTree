@@ -1,6 +1,7 @@
 package GST;
 
 import GST.acdat.AhoCorasickDoubleArrayTrie;
+
 import java.io.*;
 import java.util.*;
 
@@ -270,6 +271,171 @@ public class ERA implements Serializable {
     }
 
     private final RPLComparator RPLCOMPARATOR = new RPLComparator();
+
+    /**
+     * @param S         字符串列表
+     * @param prefixSet 前缀集合(包含拆分符)
+     * @return 返回<前缀(包含拆分符)，前缀在串的位置>
+     */
+    Map<String, List<int[]>> getPrefixLoc(List<String> S, Set<String> prefixSet) {
+        Map<String, List<int[]>> prefixLoc = new HashMap<>();//<prefixWithoutSplitter, Prefix Location>
+        Map<String, String> prefixMap = new TreeMap<>();//<prefixWithoutSplitter, Prefix>
+        for (String prefix : prefixSet) {
+            String prefixWithoutSplitter = prefix.replace(SPLITTER_INSERTION + "", "").replace(SPLITTER + "", "");//去掉分割标记
+            prefixMap.put(prefixWithoutSplitter, prefix);
+        }
+
+        AhoCorasickDoubleArrayTrie<String> acdat = new AhoCorasickDoubleArrayTrie<>();
+        acdat.build(prefixMap);
+        for (int index = 0; index < S.size(); index++) {//遍历主串，寻找所有的pi
+            String line = S.get(index);
+            List<AhoCorasickDoubleArrayTrie<String>.Hit<String>> prefixList = acdat.parseText(line);
+            for (AhoCorasickDoubleArrayTrie<String>.Hit<String> prefixWithoutSplitter : prefixList) {
+                String sPrefixWithoutSplitter = prefixWithoutSplitter.value;
+                List<int[]> locList = prefixLoc.get(sPrefixWithoutSplitter);
+                if (locList == null) {
+                    locList = new ArrayList<>();
+                    prefixLoc.put(sPrefixWithoutSplitter, locList);
+                }
+                locList.add(new int[]{index, prefixWithoutSplitter.begin});//寻找prefix的起始位置
+            }
+        }
+        return prefixLoc;
+    }
+
+    /**
+     * 子树准备
+     *
+     * @param S       字符串列表
+     * @param prefix  垂直分区产生的prefix(包含拆分符)
+     * @param locList 拆分符在住主串S中的位置
+     * @return 返回L_B结构，L是后缀起始位置，B是分支信息
+     */
+    L_B subTreePrepareTest(List<String> S, String prefix, List<int[]> locList) {
+        List<RPL> RPLList = new ArrayList<>();
+        String prefixWithoutSplitter = prefix.replace(SPLITTER_INSERTION + "", "").replace(SPLITTER + "", "");
+        int start = prefixWithoutSplitter.length();//去掉分割标记
+        //初始化L集合，即前缀prefix在主串S中的位置
+        for (int[] loc : locList) {
+            RPLList.add(new RPL(loc[0], loc[1]));
+        }
+
+        int LSize = RPLList.size();
+        int remainingLeaves = LSize;//剩余待处理的R
+        int[] B = new int[LSize];
+        boolean[] Adone = new boolean[LSize];
+        int[] I = new int[LSize];
+        List<Integer> initAAIndex = new ArrayList<>(LSize);//活动区0对应的编号列表
+        Map<Integer, List<Integer>> AAList = new HashMap<>();//key为活动区id，value为同一个活动区的index
+        List<Integer> undefinedB = new ArrayList<>(LSize);//未定义的B
+        for (int i = 0; i < LSize; i++) {
+            I[i] = i;
+            RPLList.get(i).P = i;
+            undefinedB.add(i);
+            initAAIndex.add(i);//0号活动区对应的ID
+        }
+        AAList.put(0, initAAIndex);//添加0号活动区
+        undefinedB.remove(0);
+        //一开始只有0号活动区，0号活动区的元素为0-len-1
+        int lastActiveAreaId = 0;
+        while (true) {
+            if (undefinedB.size() == 0)
+                break;
+
+            int range = getRangeOfSymbols(remainingLeaves);//line 9
+            for (int i = 0; i < LSize; i++) {//line 10
+                if (I[i] != -1) {
+                    //R[I[i]]=READRANGE(S,L[I[i]]+start,range)
+                    RPL rpl = RPLList.get(I[i]);
+                    int index = rpl.index;
+                    int L = rpl.L;
+                    int begin = L + start;
+                    int end = begin + range;
+                    String string = S.get(index);
+                    if (end > string.length())
+                        end = string.length();
+                    rpl.R = string.substring(begin, end);
+                }
+            }
+            ////////////Line 13-Line 15 START/////////////
+            Map<Integer, List<Integer>> newAAList = new HashMap<>(AAList);
+            for (Integer AAId : AAList.keySet()) {//遍历每个活动区
+                //如果活动区中有任意被done的（我猜一个done则该活动区所有元素都done）
+                List<Integer> indexList = AAList.get(AAId);//AAId活动区拥有的index
+                if (Adone[indexList.get(0)])
+                    continue;
+                List<RPL> subRPLList = new ArrayList<>(indexList.size());
+                for (Integer index : indexList)//将该活动区的所有元素copy到subRPLList
+                    subRPLList.add(RPLList.get(index));
+                Collections.sort(subRPLList, RPLCOMPARATOR);//对subRPLList进行排序
+                for (int i = 0; i < indexList.size(); i++) {
+                    int index = indexList.get(i);
+                    RPL rpl = subRPLList.get(i);
+                    I[rpl.P] = index;//maintain I
+                    RPLList.set(index, rpl);//把排序好的RPL回填
+                }
+                for (int i = 0; i < indexList.size(); ) {
+                    int index = indexList.get(i);
+                    int j = i + 1;
+                    while (j < indexList.size()) {
+                        int indexJ = indexList.get(j);
+                        if (!RPLList.get(index).R.equals(RPLList.get(indexJ).R))
+                            break;
+                        j++;
+                    }
+                    if (j != i + 1) {//发现活动区
+                        List<Integer> newAA = new ArrayList<>(j - i);
+                        for (int k = i; k < j; k++) {//将R相同的元素从旧活动区移除，加入新的活动区
+                            newAA.add(indexList.remove(i));
+                            if (indexList.size() == 0)
+                                newAAList.remove(AAId);
+                        }
+                        newAAList.put(++lastActiveAreaId, newAA);
+                    } else
+                        i = j;
+                }
+            }
+            AAList = newAAList;
+            ////////////Line 13-Line 15 END/////////////
+            for (int ind = undefinedB.size() - 1; ind >= 0; ind--) {
+                int i = undefinedB.get(ind);
+                //B[i] is not defined
+                //cs is the common S-prefix of R[i-1] and R[i]
+                int cs = 0;
+                String R1 = RPLList.get(i - 1).R;
+                String R2 = RPLList.get(i).R;
+                for (int j = 0; j < Math.min(R1.length(), R2.length()); j++) {
+                    //R1与R2的字符相等
+                    if (R1.charAt(j) == R2.charAt(j)) {
+                        cs++;
+                    } else
+                        break;
+                }
+                if (cs < range) {//line 18
+                    //line 19
+                    B[i] = start + cs;
+                    undefinedB.remove(ind);
+                    if (B[i - 1] > 0 || i == 1) {
+                        I[RPLList.get(i - 1).P] = -1;
+                        Adone[i - 1] = true;
+                        RPLList.get(i - 1).R = null;
+                        remainingLeaves--;
+                    }
+                    if (i == RPLList.size() - 1 || B[i + 1] > 0) {
+                        I[RPLList.get(i).P] = -1;
+                        Adone[i] = true;
+                        RPLList.get(i).R = null;
+                        remainingLeaves--;
+                    }
+                }
+            }
+            start += range;
+        }
+        List<int[]> newL = new ArrayList<>(RPLList.size());
+        for (RPL rpl : RPLList)
+            newL.add(new int[]{rpl.index, rpl.L});
+        return new L_B(newL, B);
+    }
 
     /**
      * 子树准备
