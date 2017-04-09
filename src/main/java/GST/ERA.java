@@ -127,11 +127,11 @@ public class ERA implements Serializable {
 
         //////////////
         while (!P_.isEmpty()) {
-            Map<String, Integer> currentFpiList = new HashMap<>();
+            Map<String, Integer> currentFpiList = new HashMap<>(P_.size());
             Map<String, String> map = new TreeMap<>(); // key pi，value pi
             //当pi对应的Set长度大于1，则需要拆分插入，频率为0跳过该pi，频率为1直接扩展一个字符
-            Map<String, Set<Character>> piNext = new HashMap<>();//key pi value 下一个字符（不包括终结符）
-            Map<String, Boolean> piTerminator = new HashMap<>();//key pi value pi下一个字符是否是终结符
+            Map<String, Set<Character>> piNext = new HashMap<>(P_.size());//key pi value 下一个字符（不包括终结符）
+            Map<String, Boolean> piTerminator = new HashMap<>(P_.size());//key pi value pi下一个字符是否是终结符
 
             for (String pi : P_) {//对每个pi
                 String piWithoutSplitter = pi.replace(SPLITTER + "", "").replace(SPLITTER_INSERTION + "", "");
