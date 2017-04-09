@@ -7,16 +7,12 @@ import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
-
 import java.io.*;
 import java.util.*;
-
 import org.apache.spark.api.java.function.FlatMapFunction;
 import org.apache.spark.api.java.function.Function;
-import org.apache.spark.api.java.function.PairFunction;
 import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.serializer.KryoRegistrator;
-import scala.Tuple2;
 
 /**
  * Created by Liang on 16-11-9.
@@ -24,18 +20,18 @@ import scala.Tuple2;
  */
 public class Main {
     private static int FmSelector(int fileSize) {
-        if (fileSize < 5000000) //5000 1000
-            return 50000;
-        else if (fileSize < 30000000)//50000 1000
-            return 150000;
-        else if (fileSize < 50000000)//500000 20
-            return 140000;
-        else if (fileSize < 75000000)//50000 5000
-            return 110000;
+        if (fileSize < 70000000) //other unknown small data set
+            return 1000000;
         else if (fileSize < 80000000)//1000000 100
-            return 90000;
-        else //500000 1000
-            return 200000;
+            return 1500000;
+        else if (fileSize < 210000000)//2M_100
+            return 1400000;
+        else if (fileSize < 240000000)//500000_1000
+            return 1100000;
+        else if (fileSize < 420000000)//20M_20
+            return 1900000;
+        else //unknown big data set
+            return 2500000;
     }
 
     //"ClassRegistrator" must be public

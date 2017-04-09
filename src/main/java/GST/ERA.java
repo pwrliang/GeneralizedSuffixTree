@@ -164,6 +164,7 @@ public class ERA implements Serializable {
                     P.add(pi);
                     fpiList.put(pi, fpi);
                 } else if (fpi > Fm) {
+                    //如果prefix的下一个字符是终结符
                     if (piTerminator.get(piWithoutSplitter)) {
                         boolean first = false;
                         for (Character c : piNext.get(piWithoutSplitter)) {
@@ -175,12 +176,13 @@ public class ERA implements Serializable {
                                 newP_.add(pi + SPLITTER + c);
                             }
                         }
-                    } else {
-                        if (piNext.get(piWithoutSplitter).size() <= 1) {
+                    } else {//prefix的下一个不是终结符
+                        //如果prefix的下一个字符只有一种，则直接扩展
+                        if (piNext.get(piWithoutSplitter).size() == 1) {
                             for (Character c : piNext.get(piWithoutSplitter)) {
                                 newP_.add(pi + c);
                             }
-                        } else {
+                        } else {//如果prefix的下一个字符有多种
                             boolean first = false;
                             for (Character c : piNext.get(piWithoutSplitter)) {
                                 if (!first) {
