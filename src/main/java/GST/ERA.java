@@ -116,7 +116,7 @@ public class ERA implements Serializable {
      */
     Set<Set<String>> verticalPartitioning(List<String> S, Set<Character> alphabet, int Fm) {
         Set<Set<String>> virtualTree = new HashSet<>();
-        List<String> P_ = new ArrayList<>();
+        List<String> P_ = new ArrayList<>(alphabet.size());
         List<String> P = new ArrayList<>();
         final Map<String, Integer> fpiList = new HashMap<>();
         //每个key一个队列
@@ -127,11 +127,12 @@ public class ERA implements Serializable {
 
         //////////////
         while (!P_.isEmpty()) {
-            Map<String, Integer> currentFpiList = new HashMap<>(P_.size());
-            Map<String, String> map = new HashMap<>(P_.size()); // key pi，value pi
+            int P_Size = P_.size();
+            Map<String, Integer> currentFpiList = new HashMap<>(P_Size);
+            Map<String, String> map = new HashMap<>(P_Size); // key pi，value pi
             //当pi对应的Set长度大于1，则需要拆分插入，频率为0跳过该pi，频率为1直接扩展一个字符
-            Map<String, Set<Character>> piNext = new HashMap<>(P_.size());//key pi value 下一个字符（不包括终结符）
-            Map<String, Boolean> piTerminator = new HashMap<>(P_.size());//key pi value pi下一个字符是否是终结符
+            Map<String, Set<Character>> piNext = new HashMap<>(P_Size);//key pi value 下一个字符（不包括终结符）
+            Map<String, Boolean> piTerminator = new HashMap<>(P_Size);//key pi value pi下一个字符是否是终结符
 
             for (String pi : P_) {//对每个pi
                 String piWithoutSplitter = pi.replace(SPLITTER + "", "").replace(SPLITTER_INSERTION + "", "");
@@ -203,11 +204,7 @@ public class ERA implements Serializable {
         P = new ArrayList<>(fpiList.keySet());
         Collections.sort(P, new Comparator<String>() {
             public int compare(String o1, String o2) {
-                if (fpiList.get(o1) > fpiList.get(o2))
-                    return -1;
-                else if (fpiList.get(o1).equals(fpiList.get(o2)))
-                    return 0;
-                else return 1;
+                return fpiList.get(o2) - fpiList.get(o1);
             }
         });
         ////////////////////////
