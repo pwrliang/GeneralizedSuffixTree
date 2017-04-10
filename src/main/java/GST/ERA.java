@@ -128,7 +128,7 @@ public class ERA implements Serializable {
         //////////////
         while (!P_.isEmpty()) {
             Map<String, Integer> currentFpiList = new HashMap<>(P_.size());
-            Map<String, String> map = new HashMap<>(); // key pi，value pi
+            Map<String, String> map = new HashMap<>(P_.size()); // key pi，value pi
             //当pi对应的Set长度大于1，则需要拆分插入，频率为0跳过该pi，频率为1直接扩展一个字符
             Map<String, Set<Character>> piNext = new HashMap<>(P_.size());//key pi value 下一个字符（不包括终结符）
             Map<String, Boolean> piTerminator = new HashMap<>(P_.size());//key pi value pi下一个字符是否是终结符
@@ -291,14 +291,14 @@ public class ERA implements Serializable {
         for (int index = 0; index < S.size(); index++) {//遍历主串，寻找所有的pi
             String line = S.get(index);
             List<AhoCorasickDoubleArrayTrie<String>.Hit<String>> prefixList = acdat.parseText(line);
-            for (AhoCorasickDoubleArrayTrie<String>.Hit<String> prefixWithoutSplitter : prefixList) {
-                String sPrefixWithoutSplitter = prefixWithoutSplitter.value;
-                List<int[]> locList = prefixLoc.get(sPrefixWithoutSplitter);
+            for (AhoCorasickDoubleArrayTrie<String>.Hit<String> prefixInfo : prefixList) {
+                String sPrefix = prefixInfo.value;
+                List<int[]> locList = prefixLoc.get(sPrefix);
                 if (locList == null) {
                     locList = new ArrayList<>();
-                    prefixLoc.put(sPrefixWithoutSplitter, locList);
+                    prefixLoc.put(sPrefix, locList);
                 }
-                locList.add(new int[]{index, prefixWithoutSplitter.begin});//寻找prefix的起始位置
+                locList.add(new int[]{index, prefixInfo.begin});//寻找prefix的起始位置
             }
         }
         return prefixLoc;
