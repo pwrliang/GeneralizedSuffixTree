@@ -73,7 +73,7 @@ public class Main {
             lengthForAll += s.length();
         int Fm = FmSelector(lengthForAll);
         Set<Character> alphabet = ERA.getAlphabet(S);//扫描串获得字母表
-        Set<Set<String>> setOfVirtualTrees = era.verticalPartitioning(S, alphabet, Fm);//开始垂直分区
+        Set<Set<String>> setOfVirtualTrees = era.verticalPartitioningFast(S, alphabet, Fm);//开始垂直分区
         //分配任务
         final Broadcast<List<String>> broadcastStringList = sc.broadcast(S);
         final Broadcast<Map<Character, String>> broadcasterTerminatorFilename = sc.broadcast(terminatorFilename);
