@@ -116,8 +116,8 @@ public class ERA implements Serializable {
      */
     Set<Set<String>> verticalPartitioning(List<String> S, Set<Character> alphabet, int Fm) {
         Set<Set<String>> virtualTree = new HashSet<>();
-        List<String> P_ = new ArrayList<>(alphabet.size());
-        List<String> P = new ArrayList<>(alphabet.size());
+        List<String> P_ = new ArrayList<>();
+        List<String> P = new ArrayList<>();
         final Map<String, Integer> fpiList = new HashMap<>();
         //每个key一个队列
 
@@ -128,7 +128,7 @@ public class ERA implements Serializable {
         //////////////
         while (!P_.isEmpty()) {
             Map<String, Integer> currentFpiList = new HashMap<>(P_.size());
-            Map<String, String> map = new TreeMap<>(); // key pi，value pi
+            Map<String, String> map = new HashMap<>(); // key pi，value pi
             //当pi对应的Set长度大于1，则需要拆分插入，频率为0跳过该pi，频率为1直接扩展一个字符
             Map<String, Set<Character>> piNext = new HashMap<>(P_.size());//key pi value 下一个字符（不包括终结符）
             Map<String, Boolean> piTerminator = new HashMap<>(P_.size());//key pi value pi下一个字符是否是终结符
@@ -279,8 +279,8 @@ public class ERA implements Serializable {
      * @return 返回(key包含拆分符的前缀 value前缀在串的位置)
      */
     Map<String, List<int[]>> getPrefixLoc(List<String> S, Set<String> prefixSet) {
-        Map<String, List<int[]>> prefixLoc = new HashMap<>();//<prefixWithoutSplitter, Prefix Location>
-        Map<String, String> prefixMap = new TreeMap<>();//<prefixWithoutSplitter, Prefix>
+        Map<String, List<int[]>> prefixLoc = new HashMap<>(prefixSet.size());//<prefixWithoutSplitter, Prefix Location>
+        Map<String, String> prefixMap = new HashMap<>(prefixSet.size());//<prefixWithoutSplitter, Prefix>
         for (String prefix : prefixSet) {
             String prefixWithoutSplitter = prefix.replace(SPLITTER_INSERTION + "", "").replace(SPLITTER + "", "");//去掉分割标记
             prefixMap.put(prefixWithoutSplitter, prefix);
@@ -313,7 +313,7 @@ public class ERA implements Serializable {
      * @return 返回L_B结构，L是后缀起始位置，B是分支信息
      */
     L_B subTreePrepare(List<String> S, String prefix, List<int[]> locList) {
-        List<RPL> RPLList = new ArrayList<>();
+        List<RPL> RPLList = new ArrayList<>(locList.size());
         String prefixWithoutSplitter = prefix.replace(SPLITTER_INSERTION + "", "").replace(SPLITTER + "", "");
         int start = prefixWithoutSplitter.length();//去掉分割标记
         //初始化L集合，即前缀prefix在主串S中的位置
