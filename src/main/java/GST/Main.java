@@ -29,7 +29,7 @@ public class Main {
         else if (fileSize < 210000000)//2M_100
             return 1400000;
         else if (fileSize < 240000000)//500000_1000
-            return 1100000;
+            return 1190000;
         else if (fileSize < 420000000)//20M_20
             return 1900000;
         else //unknown big data set
