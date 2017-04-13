@@ -123,30 +123,6 @@ public class ERA implements Serializable {
         return sb.toString();
     }
 
-    void findPrefix(final JavaRDD<String> S, List<String> prefixList) {
-        final Map<String, String> prefixMap = new HashMap<>(prefixList.size());
-        for (String prefix : prefixList)
-            prefixMap.put(prefix, prefix);
-
-        JavaPairRDD<String, Long> IndexedS = S.zipWithIndex();
-        //Map<String,Tuple2<Set<Character>,Integer>> 前缀，前缀下一个字符集合，出现频率
-        JavaRDD<Map<String, Tuple2<Character, Integer>>> prefixLocRDD = IndexedS.map(new Function<Tuple2<String, Long>, Map<String, Tuple2<Character, Integer>>>() {
-            @Override
-            public Map<String, Tuple2<Character, Integer>> call(Tuple2<String, Long> input) throws Exception {
-                String line = input._1;//某一串
-                AhoCorasickDoubleArrayTrie<String> acdat = new AhoCorasickDoubleArrayTrie<>();
-                acdat.build(prefixMap);
-                List<AhoCorasickDoubleArrayTrie<String>.Hit<String>> prefixPosList = acdat.parseText(line);
-                Map<String, Tuple2<Character, Integer>> prefixLoc = new HashMap<>();
-                for (AhoCorasickDoubleArrayTrie<String>.Hit<String> prefixPos : prefixPosList) {
-                    Character nextChar = line.charAt(prefixPos.end);
-                    prefixLoc.put(prefixPos.value, new Tuple2<Character, Integer>(nextChar, 1));
-                }
-                return prefixLoc;
-            }
-        });
-    }
-
     /**
      * 垂直分区
      *
@@ -155,7 +131,7 @@ public class ERA implements Serializable {
      * @param Fm       参数Fm
      * @return 返回集合列表，每个元素是集合，集合内容是pi
      */
-    Set<Set<String>> verticalPartitioningTest(JavaRDD<String> S, Set<Character> alphabet, int Fm) {
+    Set<Set<String>> verticalPartitioning(JavaRDD<String> S, Set<Character> alphabet, int Fm) {
         Set<Set<String>> virtualTree = new HashSet<>();
         List<String> P_ = new ArrayList<>();
         List<String> P = new ArrayList<>();
@@ -165,71 +141,84 @@ public class ERA implements Serializable {
         //如果c是原生类型，就用+""转换，如果c是包装类型，就用toString
         for (Character s : alphabet)
             P_.add(s.toString());
-        JavaPairRDD<String, Long> IndexedS = S.zipWithIndex();
         //////////////
         while (!P_.isEmpty()) {
             final int P_Size = P_.size();
             Map<String, Integer> currentFpiList = new HashMap<>(P_Size);
             //当pi对应的Set长度大于1，则需要拆分插入，频率为0跳过该pi，频率为1直接扩展一个字符
-            Map<String, Set<Character>> piNext = new HashMap<>(P_Size);//key pi value 下一个字符（不包括终结符）
+            final Map<String, Set<Character>> piNext = new HashMap<>(P_Size);//key pi value 下一个字符（不包括终结符）
             Map<String, Boolean> piTerminator = new HashMap<>(P_Size);//key pi value pi下一个字符是否是终结符
-            final Map<String, String> prefixMap = new HashMap<>(P_.size());//k,v都没有分隔符
+            final List<String> prefixList = new ArrayList<>(P_Size);
             for (String pi : P_) {//对每个pi
                 String piWithoutSplitter = noSplitter(pi);
-                prefixMap.put(piWithoutSplitter, piWithoutSplitter);
-//                currentFpiList.put(piWithoutSplitter, 0);
-//                piNext.put(piWithoutSplitter, new HashSet<Character>());
-//                piTerminator.put(piWithoutSplitter, false);
+                piTerminator.put(piWithoutSplitter, false);
+                prefixList.add(piWithoutSplitter);
             }
             //Map<String,Tuple2<Character,Integer>> 前缀，前缀下一个字符集合，出现频率
             //String,Tuple2<Character,Integer> //(prefix ，(下一个字符，1))
             //对于每个串，找字串集合中的元素在该串中是否存在
-            JavaRDD<Set<Tuple2<String, Tuple2<Character, Integer>>>> prefixLocRDD = S.map(new Function<String, Set<Tuple2<String, Tuple2<Character, Integer>>>>() {
+            JavaRDD<Set<Tuple2<String, Tuple2<Set<Character>, Integer>>>> locRDD = S.map(new Function<String, Set<Tuple2<String, Tuple2<Set<Character>, Integer>>>>() {
                 @Override
-                public Set<Tuple2<String, Tuple2<Character, Integer>>> call(String line) throws Exception {
-                    AhoCorasickDoubleArrayTrie<String> acdat = new AhoCorasickDoubleArrayTrie<>();
-                    acdat.build(prefixMap);
-                    List<AhoCorasickDoubleArrayTrie<String>.Hit<String>> prefixPosList = acdat.parseText(line);
-                    Set<Tuple2<String, Tuple2<Character, Integer>>> prefixLocSet = new HashSet<>(P_Size);
-                    for (AhoCorasickDoubleArrayTrie<String>.Hit<String> prefixPos : prefixPosList) {
-                        Character nextChar = line.charAt(prefixPos.end);
-                        String prefix = prefixPos.value;
-                        Tuple2<String, Tuple2<Character, Integer>> prefixLoc = new Tuple2<>(prefix, new Tuple2<>(nextChar, 1));
-                        prefixLocSet.add(prefixLoc);
+                public Set<Tuple2<String, Tuple2<Set<Character>, Integer>>> call(String line) throws Exception {
+                    Set<Tuple2<String, Tuple2<Set<Character>, Integer>>> result = new HashSet<>();
+                    Map<String, Integer> freqMap = new HashMap<>();
+                    Map<String, Set<Character>> nextCharMap = new HashMap<>();
+                    Trie trie = Trie.builder().addKeywords(prefixList).build();
+
+                    Collection<Emit> piList = trie.parseText(line);
+                    for (Emit piWithoutSplitter : piList) {
+                        Character nextChar = line.charAt(piWithoutSplitter.getEnd() + 1);
+                        String prefix = piWithoutSplitter.getKeyword();
+                        Set<Character> nextCharSet = nextCharMap.get(prefix);
+                        if (nextCharSet == null) {
+                            nextCharSet = new HashSet<>();
+                            nextCharMap.put(prefix, nextCharSet);
+                        }
+                        nextCharSet.add(nextChar);
+                        Integer freq = freqMap.get(prefix);
+                        if (freq == null) {
+                            freqMap.put(prefix, 1);
+                        } else {
+                            freqMap.put(prefix, freq + 1);
+                        }
                     }
-                    return prefixLocSet;
+                    for (String prefix : freqMap.keySet()) {
+                        Tuple2<String, Tuple2<Set<Character>, Integer>> tuple2 = new Tuple2<>(prefix, new Tuple2<>(nextCharMap.get(prefix),
+                                freqMap.get(prefix)));
+                        result.add(tuple2);
+                    }
+                    return result;
                 }
             });
-            JavaPairRDD<String, Tuple2<Character, Integer>> pairRDD = prefixLocRDD.flatMapToPair(new PairFlatMapFunction<Set<Tuple2<String, Tuple2<Character, Integer>>>, String, Tuple2<Character, Integer>>() {
+            JavaPairRDD<String, Tuple2<Set<Character>, Integer>> pairRDD = locRDD.flatMapToPair(new PairFlatMapFunction<Set<Tuple2<String, Tuple2<Set<Character>, Integer>>>, String, Tuple2<Set<Character>, Integer>>() {
                 @Override
-                public Iterable<Tuple2<String, Tuple2<Character, Integer>>> call(Set<Tuple2<String, Tuple2<Character, Integer>>> tuple2s) throws Exception {
+                public Iterable<Tuple2<String, Tuple2<Set<Character>, Integer>>> call(Set<Tuple2<String, Tuple2<Set<Character>, Integer>>> tuple2s) throws Exception {
                     return tuple2s;
                 }
             });
-            JavaPairRDD<String, Tuple2<List<Character>, Integer>> reducedRDD = pairRDD.combineByKey(new Function<Tuple2<Character, Integer>, Tuple2<List<Character>, Integer>>() {
+            JavaPairRDD<String, Tuple2<Set<Character>, Integer>> reducedRDD = pairRDD.combineByKey(new Function<Tuple2<Set<Character>, Integer>, Tuple2<Set<Character>, Integer>>() {
                 @Override
-                public Tuple2<List<Character>, Integer> call(Tuple2<Character, Integer> _1) throws Exception {
-                    List<Character> characters = new ArrayList<>();
-                    characters.add(_1._1);
-                    return new Tuple2<>(characters, _1._2);
+                public Tuple2<Set<Character>, Integer> call(Tuple2<Set<Character>, Integer> _1) throws Exception {
+                    return _1;
                 }
-            }, new Function2<Tuple2<List<Character>, Integer>, Tuple2<Character, Integer>, Tuple2<List<Character>, Integer>>() {
+            }, new Function2<Tuple2<Set<Character>, Integer>, Tuple2<Set<Character>, Integer>, Tuple2<Set<Character>, Integer>>() {
                 @Override
-                public Tuple2<List<Character>, Integer> call(Tuple2<List<Character>, Integer> _1, Tuple2<Character, Integer> _2) throws Exception {
-                    _1._1.add(_2._1);
-                    return new Tuple2<>(_1._1, _1._2 + _2._2);
+                public Tuple2<Set<Character>, Integer> call(Tuple2<Set<Character>, Integer> _1, Tuple2<Set<Character>, Integer> _2) throws Exception {
+                    Set<Character> set = new HashSet<>(_1._1);
+                    set.addAll(_2._1);
+                    return new Tuple2<>(set, _1._2 + _2._2);
                 }
-            }, new Function2<Tuple2<List<Character>, Integer>, Tuple2<List<Character>, Integer>, Tuple2<List<Character>, Integer>>() {
+            }, new Function2<Tuple2<Set<Character>, Integer>, Tuple2<Set<Character>, Integer>, Tuple2<Set<Character>, Integer>>() {
                 @Override
-                public Tuple2<List<Character>, Integer> call(Tuple2<List<Character>, Integer> _1, Tuple2<List<Character>, Integer> _2) throws Exception {
+                public Tuple2<Set<Character>, Integer> call(Tuple2<Set<Character>, Integer> _1, Tuple2<Set<Character>, Integer> _2) throws Exception {
                     _1._1.addAll(_2._1);
                     return new Tuple2<>(_1._1, _1._2 + _2._2);
                 }
             });
+            Map<String, Tuple2<Set<Character>, Integer>> map = reducedRDD.collectAsMap();
 
-            Map<String, Tuple2<List<Character>, Integer>> map = reducedRDD.collectAsMap();
             for (String prefix : map.keySet()) {
-                Tuple2<List<Character>, Integer> tuple2 = map.get(prefix);
+                Tuple2<Set<Character>, Integer> tuple2 = map.get(prefix);
                 Set<Character> piNextList = new HashSet<>(tuple2._1.size());
                 for (Character character : tuple2._1) {
                     if (isTerminator(character)) { //S中任意一个串以pi结尾
@@ -242,7 +231,6 @@ public class ERA implements Serializable {
                 piNext.put(prefix, piNextList);
             }
 
-
             List<String> newP_ = new ArrayList<>();
             for (String pi : P_) {
                 String piWithoutSplitter = noSplitter(pi);
@@ -320,136 +308,6 @@ public class ERA implements Serializable {
         return virtualTree;
     }
 
-
-    /**
-     * 垂直分区
-     *
-     * @param S        字符串列表
-     * @param alphabet 字母表
-     * @param Fm       参数Fm
-     * @return 返回集合列表，每个元素是集合，集合内容是pi
-     */
-    Set<Set<String>> verticalPartitioning(List<String> S, Set<Character> alphabet, int Fm) {
-        Set<Set<String>> virtualTree = new HashSet<>();
-        List<String> P_ = new ArrayList<>();
-        List<String> P = new ArrayList<>();
-        final Map<String, Integer> fpiList = new HashMap<>();
-        //每个key一个队列
-
-        //如果c是原生类型，就用+""转换，如果c是包装类型，就用toString
-        for (Character s : alphabet)
-            P_.add(s.toString());
-
-        //////////////
-        while (!P_.isEmpty()) {
-            int P_Size = P_.size();
-            List<String> prefixWithoutSplitterList = new ArrayList<>(P_Size);
-            Map<String, Integer> currentFpiList = new HashMap<>(P_Size);
-            //当pi对应的Set长度大于1，则需要拆分插入，频率为0跳过该pi，频率为1直接扩展一个字符
-            Map<String, Set<Character>> piNext = new HashMap<>(P_Size);//key pi value 下一个字符（不包括终结符）
-            Map<String, Boolean> piTerminator = new HashMap<>(P_Size);//key pi value pi下一个字符是否是终结符
-
-            for (String pi : P_) {//对每个pi
-//                String piWithoutSplitter = pi.replace(SPLITTER + "", "").replace(SPLITTER_INSERTION + "", "");
-                String piWithoutSplitter = noSplitter(pi);
-                prefixWithoutSplitterList.add(piWithoutSplitter);
-                currentFpiList.put(piWithoutSplitter, 0);
-                piNext.put(piWithoutSplitter, new HashSet<Character>());
-                piTerminator.put(piWithoutSplitter, false);
-            }
-            Trie trie = Trie.builder().addKeywords(prefixWithoutSplitterList).build();
-
-            for (String text : S) {//遍历主串，寻找所有的pi
-                Collection<Emit> piList = trie.parseText(text);
-                for (Emit piWithoutSplitter : piList) {
-                    String sPiWithoutSplitter = piWithoutSplitter.getKeyword();
-                    int end = piWithoutSplitter.getEnd() + 1;
-                    Set<Character> piNextList = piNext.get(sPiWithoutSplitter);//pi下一个字符集合
-                    if (isTerminator(text.charAt(end))) { //S中任意一个串以pi结尾
-                        piTerminator.put(sPiWithoutSplitter, true);
-                    } else {
-                        piNextList.add(text.charAt(end));//加入pi下一个字符(不包括终结符)
-                    }
-                    currentFpiList.put(sPiWithoutSplitter, currentFpiList.get(sPiWithoutSplitter) + 1);//统计pi频率
-                }
-            }
-            List<String> newP_ = new ArrayList<>();
-            for (String pi : P_) {
-//                String piWithoutSplitter = pi.replace(SPLITTER + "", "").replace(SPLITTER_INSERTION + "", "");
-                String piWithoutSplitter = noSplitter(pi);
-                int fpi = currentFpiList.get(piWithoutSplitter);
-                if (fpi > 0 && fpi <= Fm) {
-                    P.add(pi);
-                    fpiList.put(pi, fpi);
-                } else if (fpi > Fm) {
-                    //如果prefix的下一个字符是终结符
-                    if (piTerminator.get(piWithoutSplitter)) {
-                        boolean first = false;
-                        for (Character c : piNext.get(piWithoutSplitter)) {
-                            if (!first) {
-                                newP_.add(pi + SPLITTER_INSERTION + c);
-                                first = true;
-                                pi = pi.replace(SPLITTER_INSERTION, SPLITTER);
-                            } else {
-                                newP_.add(pi + SPLITTER + c);
-                            }
-                        }
-                    } else {//prefix的下一个不是终结符
-                        //如果prefix的下一个字符只有一种，则直接扩展
-                        if (piNext.get(piWithoutSplitter).size() == 1) {
-                            for (Character c : piNext.get(piWithoutSplitter)) {
-                                newP_.add(pi + c);
-                            }
-                        } else {//如果prefix的下一个字符有多种
-                            boolean first = false;
-                            for (Character c : piNext.get(piWithoutSplitter)) {
-                                if (!first) {
-                                    newP_.add(pi + SPLITTER + c);
-                                    first = true;
-                                    pi = pi.replace(SPLITTER_INSERTION, SPLITTER);
-                                } else {
-                                    newP_.add(pi + SPLITTER + c);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            P_ = newP_;
-        }
-        //sort P in decending fpi order
-        P = new ArrayList<>(fpiList.keySet());
-        Collections.sort(P, new Comparator<String>() {
-            public int compare(String o1, String o2) {
-                if (fpiList.get(o1) > fpiList.get(o2))
-                    return -1;
-                else if (fpiList.get(o1).equals(fpiList.get(o2)))
-                    return 0;
-                else return 1;
-            }
-        });
-        ////////////////////////
-        do {
-            Set<String> G = new HashSet<>();
-            //add P.head to G and remove the item from P
-            G.add(P.remove(0));
-            for (int i = 0; i < P.size(); i++) {
-                String sCurr = P.get(i);
-                int sumG = 0;
-                for (String gi : G) {
-                    sumG += fpiList.get(gi);
-                }
-                if (fpiList.get(sCurr) + sumG <= Fm) {
-                    //add curr to G and remove the item from P
-                    G.add(sCurr);
-                    P.remove(i);
-                    i--;
-                }
-            }
-            virtualTree.add(G);
-        } while (!P.isEmpty());
-        return virtualTree;
-    }
 
     private class RPLComparator implements Comparator<RPL>, Serializable {
         /*
@@ -500,7 +358,6 @@ public class ERA implements Serializable {
         Map<String, List<int[]>> prefixLoc = new HashMap<>(prefixSet.size());//<prefixWithoutSplitter, Prefix Location>
         Map<String, String> prefixMap = new HashMap<>(prefixSet.size());//<prefixWithoutSplitter, Prefix>
         for (String prefix : prefixSet) {
-//            String prefixWithoutSplitter = prefix.replace(SPLITTER_INSERTION + "", "").replace(SPLITTER + "", "");//去掉分割标记
             String prefixWithoutSplitter = noSplitter(prefix);
             prefixMap.put(prefixWithoutSplitter, prefix);
         }
@@ -533,7 +390,6 @@ public class ERA implements Serializable {
      */
     L_B subTreePrepare(List<String> S, String prefix, List<int[]> locList) {
         List<RPL> RPLList = new ArrayList<>(locList.size());
-//        String prefixWithoutSplitter = prefix.replace(SPLITTER_INSERTION + "", "").replace(SPLITTER + "", "");
         String prefixWithoutSplitter = noSplitter(prefix);
         int start = prefixWithoutSplitter.length();//去掉分割标记
         //初始化L集合，即前缀prefix在主串S中的位置
