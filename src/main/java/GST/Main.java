@@ -48,8 +48,9 @@ public class Main {
     public static void main(String[] args) throws IOException, InterruptedException {
         final String inputURL = args[0];
         final String outputURL = args[1];
+        final int Fm = Integer.valueOf(args[2]);
         SparkConf conf = new SparkConf().
-                setAppName("GST");
+                setAppName("GST" + new Path(inputURL).getName() + "  " + Fm);
         conf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer");
         conf.set("spark.kryo.registrator", ClassRegistrator.class.getName());
         conf.set("spark.kryoserializer.buffer.max", "2047");
@@ -68,13 +69,14 @@ public class Main {
             S.add(dataSet.get(path) + terminator);//append terminator to the end of text
             terminatorFilename.put(terminator, filename);
         }
-        JavaRDD<String> SRDD = sc.parallelize(S);
+        JavaRDD<String> SRDD = sc.parallelize(S, S.size()).cache();
         int lengthForAll = 0;
         for (String s : S)
             lengthForAll += s.length();
-        int Fm = FmSelector(lengthForAll);
+//        int Fm = FmSelector(lengthForAll);
         Set<Character> alphabet = ERA.getAlphabet(S);//扫描串获得字母表
-        Set<Set<String>> setOfVirtualTrees = era.verticalPartitioningTest(SRDD, alphabet, Fm);//开始垂直分区
+        Set<Set<String>> setOfVirtualTrees = era.verticalPartitioning(SRDD, alphabet, Fm);//开始垂直分区
+        SRDD.unpersist();
         //分配任务
         final Broadcast<List<String>> broadcastStringList = sc.broadcast(S);
         final Broadcast<Map<Character, String>> broadcasterTerminatorFilename = sc.broadcast(terminatorFilename);
