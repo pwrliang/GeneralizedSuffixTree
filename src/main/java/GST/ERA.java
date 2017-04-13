@@ -109,8 +109,8 @@ public class ERA implements Serializable {
 
     private static String noSplitter(String input) {
         StringBuilder sb = new StringBuilder(input.length());
-        char[] arr = input.toCharArray();
-        for (Character ch : arr) {
+        for (int i=0;i<input.length();i++) {
+            char ch = input.charAt(i);
             if (ch != SPLITTER && ch != SPLITTER_INSERTION) {
                 sb.append(ch);
             }
