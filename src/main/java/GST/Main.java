@@ -27,7 +27,7 @@ public class Main {
         else if (fileSize < 80000000)//1000000 100
             return 1500000;
         else if (fileSize < 210000000)//2M_100
-            return 1400000;
+            return 1480000;
         else if (fileSize < 240000000)//500000_1000
             return 1190000;
         else if (fileSize < 420000000)//20M_20
@@ -48,10 +48,8 @@ public class Main {
     public static void main(String[] args) throws IOException, InterruptedException {
         final String inputURL = args[0];
         final String outputURL = args[1];
-        final int Fm = Integer.parseInt(args[2]);
         SparkConf conf = new SparkConf().
-                setAppName("GST"+new Path(inputURL).getName()+" Fm:"+Fm);
-
+                setAppName("GST");
         conf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer");
         conf.set("spark.kryo.registrator", ClassRegistrator.class.getName());
         conf.set("spark.kryoserializer.buffer.max", "2047");
@@ -73,9 +71,9 @@ public class Main {
         int lengthForAll = 0;
         for (String s : S)
             lengthForAll += s.length();
-//        int Fm = FmSelector(lengthForAll);
+        int Fm = FmSelector(lengthForAll);
         Set<Character> alphabet = ERA.getAlphabet(S);//扫描串获得字母表
-        Set<Set<String>> setOfVirtualTrees = era.verticalPartitioningFast(S, alphabet, Fm);//开始垂直分区
+        Set<Set<String>> setOfVirtualTrees = era.verticalPartitioning(S, alphabet, Fm);//开始垂直分区
         //分配任务
         final Broadcast<List<String>> broadcastStringList = sc.broadcast(S);
         final Broadcast<Map<Character, String>> broadcasterTerminatorFilename = sc.broadcast(terminatorFilename);
