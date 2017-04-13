@@ -107,6 +107,17 @@ public class ERA implements Serializable {
         return alphabet;
     }
 
+    private static String noSplitter(String input) {
+        StringBuilder sb = new StringBuilder(input.length());
+        char[] arr = input.toCharArray();
+        for (Character ch : arr) {
+            if (ch != SPLITTER && ch != SPLITTER_INSERTION) {
+                sb.append(ch);
+            }
+        }
+        return sb.toString();
+    }
+
 
     /**
      * 垂直分区
@@ -137,7 +148,8 @@ public class ERA implements Serializable {
             Map<String, Boolean> piTerminator = new HashMap<>(P_Size);//key pi value pi下一个字符是否是终结符
 
             for (String pi : P_) {//对每个pi
-                String piWithoutSplitter = pi.replace(SPLITTER + "", "").replace(SPLITTER_INSERTION + "", "");
+//                String piWithoutSplitter = pi.replace(SPLITTER + "", "").replace(SPLITTER_INSERTION + "", "");
+                String piWithoutSplitter = noSplitter(pi);
                 prefixWithoutSplitterList.add(piWithoutSplitter);
                 currentFpiList.put(piWithoutSplitter, 0);
                 piNext.put(piWithoutSplitter, new HashSet<Character>());
@@ -161,7 +173,8 @@ public class ERA implements Serializable {
             }
             List<String> newP_ = new ArrayList<>();
             for (String pi : P_) {
-                String piWithoutSplitter = pi.replace(SPLITTER + "", "").replace(SPLITTER_INSERTION + "", "");
+//                String piWithoutSplitter = pi.replace(SPLITTER + "", "").replace(SPLITTER_INSERTION + "", "");
+                String piWithoutSplitter = noSplitter(pi);
                 int fpi = currentFpiList.get(piWithoutSplitter);
                 if (fpi > 0 && fpi <= Fm) {
                     P.add(pi);
@@ -285,7 +298,8 @@ public class ERA implements Serializable {
         Map<String, List<int[]>> prefixLoc = new HashMap<>(prefixSet.size());//<prefixWithoutSplitter, Prefix Location>
         Map<String, String> prefixMap = new HashMap<>(prefixSet.size());//<prefixWithoutSplitter, Prefix>
         for (String prefix : prefixSet) {
-            String prefixWithoutSplitter = prefix.replace(SPLITTER_INSERTION + "", "").replace(SPLITTER + "", "");//去掉分割标记
+//            String prefixWithoutSplitter = prefix.replace(SPLITTER_INSERTION + "", "").replace(SPLITTER + "", "");//去掉分割标记
+            String prefixWithoutSplitter = noSplitter(prefix);
             prefixMap.put(prefixWithoutSplitter, prefix);
         }
 
@@ -317,7 +331,8 @@ public class ERA implements Serializable {
      */
     L_B subTreePrepare(List<String> S, String prefix, List<int[]> locList) {
         List<RPL> RPLList = new ArrayList<>(locList.size());
-        String prefixWithoutSplitter = prefix.replace(SPLITTER_INSERTION + "", "").replace(SPLITTER + "", "");
+//        String prefixWithoutSplitter = prefix.replace(SPLITTER_INSERTION + "", "").replace(SPLITTER + "", "");
+        String prefixWithoutSplitter = noSplitter(prefix);
         int start = prefixWithoutSplitter.length();//去掉分割标记
         //初始化L集合，即前缀prefix在主串S中的位置
         for (int[] loc : locList) {
