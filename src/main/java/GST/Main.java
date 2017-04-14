@@ -102,5 +102,6 @@ public class Main {
             }
         });
         resultRDD.saveAsTextFile(outputURL);
+        sc.stop();
     }
 }
