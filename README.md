@@ -3,7 +3,7 @@
 This project is the implementation of [ERA: Efficient Serial and Parallel Suffix Tree Construction for Very Long Strings](http://www.vldb.org/pvldb/vol5/p049_essammansour_vldb2012.pdf) algorithm.
 We optimized the vertical partition algorithm for best parallelism.
 This project is also a problem in [The third term Cloud Computing Contest](https://cloud.seu.edu.cn/contest/)
-[Sildes](https://github.com/pwrliang/GeneralizedSuffixTree/raw/master/docs/slides.pptx)
+[[Sildes](https://github.com/pwrliang/GeneralizedSuffixTree/raw/master/docs/slides.pptx)]
 ## Usage
 This project build by maven, just open the project in Intellij Idea and compile&package into jar.
  
