@@ -33,4 +33,4 @@ The second one is dataset for checking the correctness of the program, which con
 3 3439.txt:805
 ```
 
-Each line of contains three parts e.g. "4 3819.txt:284". "4" means the depth of the node in the suffix tree. "3819.txt" is the file name. "284" means the start index of the file "3819.txt"
+Each line of contains three parts e.g. "4 3819.txt:284". "4" means the depth of the leaf node in the suffix tree. "3819.txt" is the file name. "284" means the start index of the leaf node in the file "3819.txt"
