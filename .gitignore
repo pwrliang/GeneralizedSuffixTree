@@ -48,8 +48,6 @@ hs_err_pid*
 /target/
 /src/META-INF
 /src/main/java/META-INF
-suffixtree.ipr
-suffixtree.iml
 # mpeltonen/sbt-idea plugin
 .idea_modules/
 
