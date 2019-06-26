@@ -7,8 +7,10 @@
       <sourceFolder url="file://$MODULE_DIR$/src/main/java" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>
-    <orderEntry type="jdk" jdkName="1.8" jdkType="JavaSDK" />
+    <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
+    <orderEntry type="library" name="Maven: org.ahocorasick:ahocorasick:0.4.0" level="project" />
+    <orderEntry type="library" name="Maven: com.hankcs:aho-corasick-double-array-trie:1.2.1" level="project" />
     <orderEntry type="library" name="Maven: org.apache.spark:spark-core_2.11:1.6.2" level="project" />
     <orderEntry type="library" name="Maven: org.apache.avro:avro-mapred:hadoop2:1.7.7" level="project" />
     <orderEntry type="library" name="Maven: org.apache.avro:avro-ipc:1.7.7" level="project" />

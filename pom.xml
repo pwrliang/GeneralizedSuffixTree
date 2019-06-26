@@ -11,6 +11,18 @@
         <maven.compiler.target>1.8</maven.compiler.target>
     </properties>
     <dependencies>
+        <!-- https://mvnrepository.com/artifact/org.ahocorasick/ahocorasick -->
+        <dependency>
+            <groupId>org.ahocorasick</groupId>
+            <artifactId>ahocorasick</artifactId>
+            <version>0.4.0</version>
+        </dependency>
+        <!-- https://mvnrepository.com/artifact/com.hankcs/aho-corasick-double-array-trie -->
+        <dependency>
+            <groupId>com.hankcs</groupId>
+            <artifactId>aho-corasick-double-array-trie</artifactId>
+            <version>1.2.1</version>
+        </dependency>
         <!-- https://mvnrepository.com/artifact/org.apache.spark/spark-core -->
         <dependency>
             <groupId>org.apache.spark</groupId>

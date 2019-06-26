@@ -1,8 +1,8 @@
 package GST;
 
-import GST.acdat.AhoCorasickDoubleArrayTrie;
-import GST.ahocorasick.trie.Emit;
-import GST.ahocorasick.trie.Trie;
+import com.hankcs.algorithm.AhoCorasickDoubleArrayTrie;
+import org.ahocorasick.trie.Emit;
+import org.ahocorasick.trie.Trie;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.function.*;
@@ -365,8 +365,8 @@ public class ERA implements Serializable {
         acdat.build(prefixMap);
         for (int index = 0; index < S.size(); index++) {//遍历主串，寻找所有的pi
             String line = S.get(index);
-            List<AhoCorasickDoubleArrayTrie<String>.Hit<String>> prefixList = acdat.parseText(line);
-            for (AhoCorasickDoubleArrayTrie<String>.Hit<String> prefixInfo : prefixList) {
+            List<AhoCorasickDoubleArrayTrie.Hit<String>> prefixList = acdat.parseText(line);
+            for (AhoCorasickDoubleArrayTrie.Hit<String> prefixInfo : prefixList) {
                 String sPrefix = prefixInfo.value;
                 List<int[]> locList = prefixLoc.get(sPrefix);
                 if (locList == null) {

@@ -6,12 +6,12 @@
         <sourceOutputDir name="target/generated-sources/annotations" />
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
-        <module name="GST" />
+        <module name="suffixtree" />
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>
       <module name="GST" target="1.8" />
-      <module name="suffixtree" target="1.7" />
+      <module name="suffixtree" target="1.8" />
     </bytecodeTargetLevel>
   </component>
 </project>
