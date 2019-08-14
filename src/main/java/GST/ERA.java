@@ -64,7 +64,7 @@ public class ERA implements Serializable {
         }
     }
 
-    private char terminator = 43000;//起始终结符
+    private char terminator = 43000; //起始终结符
     private static final char SPLITTER_INSERTION = 57001;//拆分并插入叶节点
     private static final char SPLITTER = 57002;//只拆分，不插入叶节点
 
@@ -81,8 +81,11 @@ public class ERA implements Serializable {
     /**
      * 产生不重复的终结符
      */
-    char nextTerminator() {
-        return terminator++;
+    public char nextTerminator() {
+        char term = terminator++;
+        if (!isTerminator(term))
+            throw new IllegalStateException("Too many terminators!");
+        return term;
     }
 
     /**
@@ -101,17 +104,20 @@ public class ERA implements Serializable {
     /**
      * 扫描所有串，生成字母表
      */
-    static Set<Character> getAlphabet(List<String> S) {
+    public Set<Character> getAlphabet(List<String> S) {
         Set<Character> alphabet = new HashSet<>();
         for (String line : S) {
             for (int j = 0; j < line.length() - 1; j++) {
-                alphabet.add(line.charAt(j));
+                char ch = line.charAt(j);
+                if (isTerminator(ch) || ch == SPLITTER_INSERTION || ch == SPLITTER)
+                    throw new IllegalStateException("Found internal character in the string! The the unicode value between 43000 ~ 57000, 57001 and 57002 are preserved for internal usage");
+                alphabet.add(ch);
             }
         }
         return alphabet;
     }
 
-    private static String noSplitter(String input) {
+    public static String noSplitter(String input) {
         StringBuilder sb = new StringBuilder(input.length());
         for (int i = 0; i < input.length(); i++) {
             char ch = input.charAt(i);
@@ -130,7 +136,7 @@ public class ERA implements Serializable {
      * @param Fm       参数Fm
      * @return 返回集合列表，每个元素是集合，集合内容是pi
      */
-    Set<Set<String>> verticalPartitioning(JavaRDD<String> S, Set<Character> alphabet, int Fm) {
+    Set<Set<String>> verticalPartitioningSpark(JavaRDD<String> S, Set<Character> alphabet, int Fm) {
         Set<Set<String>> virtualTree = new HashSet<>();
         List<String> P_ = new ArrayList<>();
         List<String> P = new ArrayList<>();
@@ -307,11 +313,305 @@ public class ERA implements Serializable {
         return virtualTree;
     }
 
+    /**
+     * 垂直分区
+     *
+     * @param S        字符串列表
+     * @param alphabet 字母表
+     * @param Fm       参数Fm
+     * @return 返回集合列表，每个元素是集合，集合内容是pi
+     */
+    Set<Set<String>> verticalPartitioning(List<String> S, Set<Character> alphabet, int Fm) {
+        Set<Set<String>> virtualTree = new HashSet<>();
+        List<String> P_ = new ArrayList<>();
+        List<String> P = new ArrayList<>();
+        final Map<String, Integer> fpiList = new HashMap<>();
+        //每个key一个队列
+
+        //如果c是原生类型，就用+""转换，如果c是包装类型，就用toString
+        for (Character s : alphabet)
+            P_.add(s.toString());
+        //////////////
+        while (!P_.isEmpty()) {
+            final int P_Size = P_.size();
+            Map<String, Integer> currentFpiList = new HashMap<>(P_Size);
+            //当pi对应的Set长度大于1，则需要拆分插入，频率为0跳过该pi，频率为1直接扩展一个字符
+            final Map<String, Set<Character>> piNext = new HashMap<>(P_Size);//key pi value 下一个字符（不包括终结符）
+            Map<String, Boolean> piTerminator = new HashMap<>(P_Size);//key pi value pi下一个字符是否是终结符
+            final List<String> prefixList = new ArrayList<>(P_Size);
+            for (String pi : P_) {//对每个pi
+                String piWithoutSplitter = noSplitter(pi);
+                piTerminator.put(piWithoutSplitter, false);
+                prefixList.add(piWithoutSplitter);
+            }
+            //Map<String,Tuple2<Character,Integer>> 前缀，前缀下一个字符集合，出现频率
+            //String,Tuple2<Character,Integer> //(prefix ，(下一个字符，1))
+            //对于每个串，找字串集合中的元素在该串中是否存在
+            Map<String, Set<Character>> prefixNextChar = new HashMap<>();
+            Map<String, Integer> prefixFreq = new HashMap<>();
+
+            for (String line : S) {
+                Map<String, Integer> freqMap = new HashMap<>();
+                Map<String, Set<Character>> nextCharMap = new HashMap<>();
+                Trie trie = Trie.builder().addKeywords(prefixList).build();
+
+                Collection<Emit> piList = trie.parseText(line);
+
+                for (Emit piWithoutSplitter : piList) {
+                    if (piWithoutSplitter.getEnd() >= line.length() - 1) {
+                        System.out.println(piWithoutSplitter.getEnd() + "/" + line.length());
+                    }
+                    Character nextChar = line.charAt(piWithoutSplitter.getEnd() + 1);
+                    String prefix = piWithoutSplitter.getKeyword();
+                    Set<Character> nextCharSet = nextCharMap.get(prefix);
+
+                    if (nextCharSet == null) {
+                        nextCharSet = new HashSet<>();
+                        nextCharMap.put(prefix, nextCharSet);
+                    }
+                    nextCharSet.add(nextChar);
+                    Integer freq = freqMap.get(prefix);
+                    if (freq == null) {
+                        freqMap.put(prefix, 1);
+                    } else {
+                        freqMap.put(prefix, freq + 1);
+                    }
+                }
+
+                for (String prefix : freqMap.keySet()) {
+                    Set<Character> nextCharSet = prefixNextChar.get(prefix);
+                    Integer freq = prefixFreq.get(prefix);
+
+                    if (nextCharSet == null) {
+                        nextCharSet = new HashSet<>();
+                        prefixNextChar.put(prefix, nextCharSet);
+                        freq = 0;
+                    }
+
+                    nextCharSet.addAll(nextCharMap.get(prefix));
+                    freq += freqMap.get(prefix);
+                    prefixFreq.put(prefix, freq);
+                }
+            }
+
+            for (Map.Entry<String, Set<Character>> entry : prefixNextChar.entrySet()) {
+                String prefix = entry.getKey();
+                Set<Character> piNextList = entry.getValue();
+                Integer freq = prefixFreq.get(prefix);
+
+                for (Character character : piNextList) {
+                    if (isTerminator(character)) { //S中任意一个串以pi结尾
+                        piTerminator.put(prefix, true);
+                    } else {
+                        piNextList.add(character);//加入pi下一个字符(不包括终结符)
+                    }
+                }
+                currentFpiList.put(prefix, freq);//统计pi频率
+                piNext.put(prefix, piNextList);
+            }
+
+            List<String> newP_ = new ArrayList<>();
+
+            for (String pi : P_) {
+                String piWithoutSplitter = noSplitter(pi);
+                int fpi = currentFpiList.get(piWithoutSplitter);
+                if (fpi > 0 && fpi <= Fm) {
+                    P.add(pi);
+                    fpiList.put(pi, fpi);
+                } else if (fpi > Fm) {
+                    //如果prefix的下一个字符是终结符
+                    if (piTerminator.get(piWithoutSplitter)) {
+                        boolean first = false;
+                        for (Character c : piNext.get(piWithoutSplitter)) {
+                            if (!first) {
+                                newP_.add(pi + SPLITTER_INSERTION + c);
+                                first = true;
+                                pi = pi.replace(SPLITTER_INSERTION, SPLITTER);
+                            } else {
+                                newP_.add(pi + SPLITTER + c);
+                            }
+                        }
+                    } else {//prefix的下一个不是终结符
+                        //如果prefix的下一个字符只有一种，则直接扩展
+                        if (piNext.get(piWithoutSplitter).size() == 1) {
+                            for (Character c : piNext.get(piWithoutSplitter)) {
+                                newP_.add(pi + c);
+                            }
+                        } else {//如果prefix的下一个字符有多种
+                            boolean first = false;
+                            for (Character c : piNext.get(piWithoutSplitter)) {
+                                if (!first) {
+                                    newP_.add(pi + SPLITTER + c);
+                                    first = true;
+                                    pi = pi.replace(SPLITTER_INSERTION, SPLITTER);
+                                } else {
+                                    newP_.add(pi + SPLITTER + c);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            P_ = newP_;
+        }
+        //sort P in decending fpi order
+        P = new ArrayList<>(fpiList.keySet());
+        P.sort((o1, o2) -> {
+            if (fpiList.get(o1) > fpiList.get(o2))
+                return -1;
+            else if (fpiList.get(o1).equals(fpiList.get(o2)))
+                return 0;
+            else return 1;
+        });
+        ////////////////////////
+        do {
+            Set<String> G = new HashSet<>();
+            //add P.head to G and remove the item from P
+            G.add(P.remove(0));
+            for (int i = 0; i < P.size(); i++) {
+                String sCurr = P.get(i);
+                int sumG = 0;
+                for (String gi : G) {
+                    sumG += fpiList.get(gi);
+                }
+                if (fpiList.get(sCurr) + sumG <= Fm) {
+                    //add curr to G and remove the item from P
+                    G.add(sCurr);
+                    P.remove(i);
+                    i--;
+                }
+            }
+            virtualTree.add(G);
+        } while (!P.isEmpty());
+        return virtualTree;
+    }
+
+    Set<Set<String>> verticalPartitioning1(List<String> S, Set<Character> alphabet, int Fm) {
+        Set<Set<String>> virtualTree = new HashSet<>();
+        List<String> P_ = new ArrayList<>();
+        List<String> P = new ArrayList<>();
+        final Map<String, Integer> fpiList = new HashMap<>();
+        //每个key一个队列
+
+        //如果c是原生类型，就用+""转换，如果c是包装类型，就用toString
+        for (Character s : alphabet)
+            P_.add(s.toString());
+
+        //////////////
+        while (!P_.isEmpty()) {
+            int P_Size = P_.size();
+            List<String> prefixWithoutSplitterList = new ArrayList<>(P_Size);
+            Map<String, Integer> currentFpiList = new HashMap<>(P_Size);
+            //当pi对应的Set长度大于1，则需要拆分插入，频率为0跳过该pi，频率为1直接扩展一个字符
+            Map<String, Set<Character>> piNext = new HashMap<>(P_Size);//key pi value 下一个字符（不包括终结符）
+            Map<String, Boolean> piTerminator = new HashMap<>(P_Size);//key pi value pi下一个字符是否是终结符
+
+            for (String pi : P_) {//对每个pi
+//                String piWithoutSplitter = pi.replace(SPLITTER + "", "").replace(SPLITTER_INSERTION + "", "");
+                String piWithoutSplitter = noSplitter(pi);
+                prefixWithoutSplitterList.add(piWithoutSplitter);
+                currentFpiList.put(piWithoutSplitter, 0);
+                piNext.put(piWithoutSplitter, new HashSet<Character>());
+                piTerminator.put(piWithoutSplitter, false);
+            }
+            Trie trie = Trie.builder().addKeywords(prefixWithoutSplitterList).build();
+
+            for (String text : S) {//遍历主串，寻找所有的pi
+                Collection<Emit> piList = trie.parseText(text);
+                for (Emit piWithoutSplitter : piList) {
+                    String sPiWithoutSplitter = piWithoutSplitter.getKeyword();
+                    int end = piWithoutSplitter.getEnd() + 1;
+                    Set<Character> piNextList = piNext.get(sPiWithoutSplitter);//pi下一个字符集合
+                    if (isTerminator(text.charAt(end))) { //S中任意一个串以pi结尾
+                        piTerminator.put(sPiWithoutSplitter, true);
+                    } else {
+                        piNextList.add(text.charAt(end));//加入pi下一个字符(不包括终结符)
+                    }
+                    currentFpiList.put(sPiWithoutSplitter, currentFpiList.get(sPiWithoutSplitter) + 1);//统计pi频率
+                }
+            }
+            List<String> newP_ = new ArrayList<>();
+            for (String pi : P_) {
+//                String piWithoutSplitter = pi.replace(SPLITTER + "", "").replace(SPLITTER_INSERTION + "", "");
+                String piWithoutSplitter = noSplitter(pi);
+                int fpi = currentFpiList.get(piWithoutSplitter);
+                if (fpi > 0 && fpi <= Fm) {
+                    P.add(pi);
+                    fpiList.put(pi, fpi);
+                } else if (fpi > Fm) {
+                    //如果prefix的下一个字符是终结符
+                    if (piTerminator.get(piWithoutSplitter)) {
+                        boolean first = false;
+                        for (Character c : piNext.get(piWithoutSplitter)) {
+                            if (!first) {
+                                newP_.add(pi + SPLITTER_INSERTION + c);
+                                first = true;
+                                pi = pi.replace(SPLITTER_INSERTION, SPLITTER);
+                            } else {
+                                newP_.add(pi + SPLITTER + c);
+                            }
+                        }
+                    } else {//prefix的下一个不是终结符
+                        //如果prefix的下一个字符只有一种，则直接扩展
+                        if (piNext.get(piWithoutSplitter).size() == 1) {
+                            for (Character c : piNext.get(piWithoutSplitter)) {
+                                newP_.add(pi + c);
+                            }
+                        } else {//如果prefix的下一个字符有多种
+                            boolean first = false;
+                            for (Character c : piNext.get(piWithoutSplitter)) {
+                                if (!first) {
+                                    newP_.add(pi + SPLITTER + c);
+                                    first = true;
+                                    pi = pi.replace(SPLITTER_INSERTION, SPLITTER);
+                                } else {
+                                    newP_.add(pi + SPLITTER + c);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            P_ = newP_;
+        }
+        //sort P in decending fpi order
+        P = new ArrayList<>(fpiList.keySet());
+        Collections.sort(P, new Comparator<String>() {
+            public int compare(String o1, String o2) {
+                if (fpiList.get(o1) > fpiList.get(o2))
+                    return -1;
+                else if (fpiList.get(o1).equals(fpiList.get(o2)))
+                    return 0;
+                else return 1;
+            }
+        });
+        ////////////////////////
+        do {
+            Set<String> G = new HashSet<>();
+            //add P.head to G and remove the item from P
+            G.add(P.remove(0));
+            for (int i = 0; i < P.size(); i++) {
+                String sCurr = P.get(i);
+                int sumG = 0;
+                for (String gi : G) {
+                    sumG += fpiList.get(gi);
+                }
+                if (fpiList.get(sCurr) + sumG <= Fm) {
+                    //add curr to G and remove the item from P
+                    G.add(sCurr);
+                    P.remove(i);
+                    i--;
+                }
+            }
+            virtualTree.add(G);
+        } while (!P.isEmpty());
+        return virtualTree;
+    }
 
     private class RPLComparator implements Comparator<RPL>, Serializable {
         /*
-          * if s1>s2 return 1 else if s1<s2 return -1 else return 0
-          * */
+         * if s1>s2 return 1 else if s1<s2 return -1 else return 0
+         * */
         int myCompare(String s1, String s2) {
             int end = Math.min(s1.length(), s2.length());
             for (int i = 0; i < end; i++) {
@@ -677,5 +977,38 @@ public class ERA implements Serializable {
             }
             node = node.rightSibling;
         }
+    }
+
+
+    /**
+     * @param target The target string to compare with.
+     * @param S      The String list
+     * @param root   The tree root
+     * @return return true if the target can be found, else return false.
+     */
+    public boolean endsWith(String target, List<String> S, ERA.TreeNode root) {
+        boolean exists = false;
+        if (root == null)
+            return false;
+        String textOnNode = S.get(root.index).substring(root.start, root.end);
+
+        // if root is leaf node
+        if (root.suffix_index != -1) {
+            exists = textOnNode.equals(target); // the text on the leaf node equals with target
+
+            if (exists)
+                return true;
+            else {
+                // if doesn't equal, compare with sibling
+                while ((root = root.rightSibling) != null) {
+                    exists |= endsWith(target, S, root);
+                }
+            }
+        } else { // if root is internal node
+            if (target.startsWith(textOnNode))
+                exists = endsWith(target.substring(textOnNode.length()), S, root.leftChild);
+        }
+
+        return exists;
     }
 }
